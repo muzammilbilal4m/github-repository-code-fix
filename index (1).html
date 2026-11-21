@@ -1,0 +1,2623 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CipherFIX</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #090d16;
+      color: #f8fafc;
+    }
+    code, pre, textarea.code-input {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    textarea.code-input {
+      white-space: pre;
+      tab-size: 4;
+      line-height: 1.5rem;
+      overflow: auto;
+    }
+    #source-code-card:fullscreen {
+      width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      border: 0;
+      border-radius: 0;
+      background: #0f172a;
+    }
+    #source-code-card:fullscreen #code-editor-pane,
+    #source-code-card.editor-fullscreen-fallback #code-editor-pane {
+      min-height: 0;
+      height: calc(100vh - 64px);
+      flex: 1 1 auto;
+    }
+    #source-code-card.editor-fullscreen-fallback {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      border: 0;
+      border-radius: 0;
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+  <meta name="description" content="CipherFIX: automated pull request audit and auto-fix. Review code, apply repairs with a change log, and upload to GitHub." />
+  <meta name="theme-color" content="#05070f" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="CipherFIX: Automated Pull Request Audit & Auto-Fix" />
+  <meta property="og:description" content="Review code, auto-fix issues with a full change log, and upload to GitHub, all in your browser." />
+<style id="premium-css">
+/* ===== PREMIUM LAYER: design tokens ===== */
+:root{--bg:#05070f;--text:#f4f6ff;--muted:#9aa3bd;--line:rgba(255,255,255,.08);--glass:rgba(255,255,255,.04);
+--c1:#4f7cff;--c2:#8b5cf6;--c3:#22d3ee;--grad:linear-gradient(120deg,var(--c1),var(--c2) 50%,var(--c3));
+--s1:8px;--s2:16px;--s3:24px;--s4:32px;--s5:48px;--s6:80px;--ease:cubic-bezier(.22,1,.36,1)}
+html{background:var(--bg);scroll-behavior:smooth;scroll-padding-top:80px}
+body.min-h-screen{background:transparent!important}
+/* Fixed aurora mesh + grain (decorative, behind everything) */
+.aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.aurora i{position:absolute;width:55vmax;height:55vmax;border-radius:50%;filter:blur(90px);opacity:.34;will-change:transform;animation:drift 26s ease-in-out infinite alternate}
+.aurora i:nth-child(1){background:var(--c1);top:-20%;left:-10%}
+.aurora i:nth-child(2){background:var(--c2);top:10%;right:-20%;animation-delay:-8s;animation-duration:32s}
+.aurora i:nth-child(3){background:var(--c3);bottom:-30%;left:20%;opacity:.2;animation-delay:-15s}
+@keyframes drift{to{transform:translate3d(8vw,6vh,0) rotate(40deg) scale(1.12)}}
+.grain{position:fixed;inset:0;z-index:70;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
+background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+#progress{position:fixed;top:0;left:0;height:2px;width:100%;background:var(--grad);transform:scaleX(0);transform-origin:0 50%;z-index:80;will-change:transform}
+#glow{position:fixed;top:0;left:0;width:320px;height:320px;margin:-160px 0 0 -160px;border-radius:50%;pointer-events:none;z-index:1;opacity:0;
+background:radial-gradient(circle,rgba(99,130,255,.16),transparent 65%);will-change:transform;transition:opacity .4s}
+#preloader{position:fixed;inset:0;z-index:90;background:var(--bg);display:grid;place-items:center;transition:opacity .45s,visibility .45s}
+#preloader.done{opacity:0;visibility:hidden}
+#preloader b{font:700 1.1rem Inter,sans-serif;letter-spacing:.2em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+/* Mode switch: landing vs. app (existing auth/app logic untouched) */
+body.landing-mode #auth-screen,body.landing-mode #app-shell{display:none!important}
+body:not(.landing-mode) #landing{display:none}
+/* ===== LANDING ===== */
+#landing{position:relative;color:var(--text);font-family:Inter,system-ui,sans-serif}
+.lp-wrap{max-width:1200px;margin:0 auto;padding:0 var(--s2)}
+.lp-nav{position:fixed;top:0;left:0;right:0;z-index:50;padding:var(--s2) 0;transition:padding .35s var(--ease)}
+.lp-nav .lp-wrap{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);height:56px;padding:0 var(--s3);
+max-width:1120px;border:1px solid var(--line);border-radius:999px;background:rgba(8,11,22,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);transition:all .35s var(--ease)}
+.lp-nav.shrunk{padding:8px 0}.lp-nav.shrunk .lp-wrap{height:48px;max-width:900px;background:rgba(8,11,22,.8)}
+.lp-logo{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.02em;color:#fff;text-decoration:none}
+.lp-logo span.mk{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--grad)}
+.lp-links{display:none;gap:var(--s3)}
+.lp-links a,.lp-foot a{position:relative;color:var(--muted);font-size:.9rem;text-decoration:none;transition:color .2s}
+.lp-links a::after,.lp-foot a::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:1px;background:currentColor;transform:scaleX(0);transform-origin:left;transition:transform .35s var(--ease)}
+.lp-links a:hover,.lp-foot a:hover{color:#fff}.lp-links a:hover::after,.lp-foot a:hover::after{transform:scaleX(1)}
+.btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:999px;font:600 .92rem Inter,sans-serif;border:1px solid var(--line);color:#fff;background:var(--glass);cursor:pointer;transition:transform .25s var(--ease),box-shadow .25s,border-color .25s;will-change:transform}
+.btn:hover{transform:scale(1.02);border-color:rgba(255,255,255,.22)}
+.btn:focus-visible,.lp-links a:focus-visible,.lp-logo:focus-visible{outline:2px solid var(--c3);outline-offset:3px}
+.btn.primary{background:var(--grad);border-color:transparent;box-shadow:0 8px 30px -8px rgba(99,102,241,.7)}
+.btn.primary:hover{box-shadow:0 12px 40px -6px rgba(99,102,241,.9)}
+.btn::before{content:"";position:absolute;top:0;left:-70%;width:50%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-20deg);transition:left .7s var(--ease)}
+.btn:hover::before{left:130%}
+.hero-track{height:170vh}
+.hero{position:sticky;top:0;min-height:100vh;display:grid;align-items:center;padding:120px 0 var(--s5);overflow:hidden}
+.hero-grid{display:grid;gap:var(--s5);align-items:center}
+.hero-copy{will-change:transform,opacity}
+.eyebrow{display:inline-flex;gap:8px;align-items:center;padding:6px 14px;border:1px solid var(--line);border-radius:999px;background:var(--glass);color:#c7d2fe;font-size:.8rem;margin-bottom:var(--s3)}
+.eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c3);box-shadow:0 0 10px var(--c3)}
+.lp-h1{font-size:clamp(2.4rem,7vw,5rem);line-height:1.02;font-weight:800;letter-spacing:-.045em;margin:0}
+.lp-h1 .w{display:inline-block;opacity:0;transform:translate3d(0,40px,0);transition:opacity .8s var(--ease),transform .8s var(--ease);transition-delay:calc(var(--i)*70ms)}
+.loaded .lp-h1 .w{opacity:1;transform:none}
+.grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:clamp(1rem,2vw,1.2rem);line-height:1.65;max-width:560px;margin:var(--s3) 0 var(--s4)}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px}
+.stage{perspective:1000px;position:relative;min-height:380px}
+.layer{position:absolute;will-change:transform}
+.tilt{transform-style:preserve-3d;transition:transform .25s ease-out,border-color .3s,box-shadow .3s;will-change:transform}
+.card{border:1px solid var(--line);border-radius:24px;background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02));backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 60px -30px rgba(0,0,0,.8)}
+.card.lift:hover{border-color:rgba(139,130,255,.45);box-shadow:0 30px 70px -25px rgba(79,124,255,.45),0 0 0 1px rgba(139,130,255,.2) inset}
+.codecard{position:relative;margin:0 auto;max-width:500px;padding:var(--s3);font:500 .8rem/1.8 'JetBrains Mono',monospace;color:#cbd5e1}
+.codecard .dots{display:flex;gap:6px;margin-bottom:var(--s2)}.codecard .dots i{width:10px;height:10px;border-radius:50%;background:#334155}
+.del{color:#fda4af;background:rgba(244,63,94,.1);display:block;padding:0 8px;border-radius:4px}.add{color:#86efac;background:rgba(34,197,94,.1);display:block;padding:0 8px;border-radius:4px}
+.badge{position:absolute;padding:10px 16px;border-radius:14px;font:600 .8rem Inter,sans-serif;transform:translateZ(60px)}
+.sec{padding:var(--s6) 0;content-visibility:auto;contain-intrinsic-size:auto 700px}
+.sec h2{font-size:clamp(1.9rem,4.5vw,3.2rem);letter-spacing:-.04em;line-height:1.08;margin:0 0 var(--s2);font-weight:800}
+.sec .sub{color:var(--muted);max-width:620px;line-height:1.65;margin:0 0 var(--s5)}
+.bento{display:grid;gap:var(--s2);grid-template-columns:1fr}
+.bento .card{padding:var(--s4);display:flex;flex-direction:column;gap:12px}
+.bento h3{margin:0;font-size:1.25rem;letter-spacing:-.02em}.bento p{margin:0;color:var(--muted);line-height:1.6;font-size:.95rem}
+.ico{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:rgba(99,102,241,.15);border:1px solid rgba(129,140,248,.3);font-size:1.2rem}
+.steps{display:grid;gap:var(--s2)}.steps .card{padding:var(--s4)}
+.steps .n{font:800 2.6rem/1 Inter;letter-spacing:-.05em;margin-bottom:12px}
+.stats{display:grid;gap:var(--s2);grid-template-columns:repeat(2,1fr)}
+.stat{padding:var(--s4) var(--s3);text-align:center}
+.stat b{display:block;font-size:clamp(2.2rem,6vw,3.6rem);font-weight:800;letter-spacing:-.04em}.stat span{color:var(--muted);font-size:.88rem}
+.banner{position:relative;padding:var(--s6) var(--s3);text-align:center;border-radius:32px;border:1px solid rgba(139,130,255,.35);overflow:hidden;
+background:radial-gradient(ellipse at 50% 0,rgba(99,102,241,.4),transparent 60%),rgba(255,255,255,.03);box-shadow:0 0 120px -30px rgba(99,102,241,.6)}
+.banner h2{margin-bottom:var(--s2)}.banner .cta-row{justify-content:center}
+.lp-foot{border-top:1px solid var(--line);padding:var(--s6) 0 var(--s4);margin-top:var(--s6)}
+.foot-grid{display:grid;gap:var(--s4);grid-template-columns:1fr 1fr}.foot-grid h4{margin:0 0 12px;font-size:.8rem;color:#fff;letter-spacing:.08em;text-transform:uppercase}
+.foot-grid a{display:block;margin-bottom:10px;width:fit-content}.foot-grid>div:first-child{grid-column:1/-1}
+.copy{color:#64748b;font-size:.8rem;margin-top:var(--s5)}
+/* scroll reveal: animates once */
+.rv{opacity:0;transform:translate3d(0,32px,0);transition:opacity .8s var(--ease),transform .8s var(--ease);transition-delay:calc(var(--i,0)*100ms);will-change:transform,opacity}
+.rv.in{opacity:1;transform:none;will-change:auto}
+@media(min-width:640px){.stats{grid-template-columns:repeat(4,1fr)}.foot-grid{grid-template-columns:2fr 1fr 1fr 1fr}.foot-grid>div:first-child{grid-column:auto}.lp-wrap{padding:0 var(--s3)}}
+@media(min-width:768px){.lp-links{display:flex}.bento{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:1024px){.hero-grid{grid-template-columns:1.05fr .95fr}.bento{grid-template-columns:repeat(6,1fr)}.bento .card:nth-child(1){grid-column:span 4}.bento .card:nth-child(2){grid-column:span 2}.bento .card:nth-child(3),.bento .card:nth-child(4),.bento .card:nth-child(5){grid-column:span 2}}
+@media(max-width:1023px){.hero-track{height:auto}.hero{position:relative;min-height:0}}
+/* ===== APP WORKSPACE restyle (CSS-only, no transforms so fullscreen editor still works) ===== */
+#auth-screen{background:transparent!important}
+#auth-screen>div,#app-shell .rounded-2xl.border{background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02))!important;border-color:var(--line)!important;backdrop-filter:blur(14px);box-shadow:0 20px 60px -30px #000}
+#app-shell .rounded-2xl.border:hover{border-color:rgba(139,130,255,.35)!important}
+#app-shell header{background:rgba(5,7,15,.7)!important;border-color:var(--line)!important}
+#app-shell>section{background:rgba(255,255,255,.02)!important;border-color:var(--line)!important}
+#app-shell button,#auth-screen button{transition:transform .2s var(--ease),background-color .2s,border-color .2s,box-shadow .2s}
+#app-shell button:hover,#auth-screen button:hover{transform:translateY(-1px)}
+#app-shell button:focus-visible,#auth-screen :focus-visible{outline:2px solid var(--c3);outline-offset:2px}
+.back-home{position:fixed;top:16px;left:16px;z-index:40}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.rv,.lp-h1 .w{opacity:1!important;transform:none!important}.hero-track{height:auto}.hero{position:relative}}
+</style>
+<style id="immersive-css">
+/* ===== IMMERSIVE LAYER (WebGL particles, cursor, marquee) ===== */
+#gl{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+body:not(.landing-mode) #gl,body:not(.landing-mode) #cur{display:none}
+#cur{position:fixed;top:0;left:0;width:36px;height:36px;margin:-18px 0 0 -18px;border:1px solid rgba(255,255,255,.55);border-radius:50%;pointer-events:none;z-index:85;mix-blend-mode:difference;opacity:0;will-change:transform;transition:opacity .3s,width .25s,height .25s,margin .25s,background .25s}
+#cur.hot{width:72px;height:72px;margin:-36px 0 0 -36px;background:rgba(255,255,255,.9)}
+.hero-copy,.sec h2,.sec .sub{text-shadow:0 2px 30px rgba(5,7,15,.9)}
+.marquee{overflow:hidden;padding:var(--s5) 0;border-block:1px solid var(--line);margin:var(--s5) 0;white-space:nowrap}
+.marquee div{display:inline-flex;gap:var(--s5);padding-right:var(--s5);animation:mq 28s linear infinite;will-change:transform;
+font:800 clamp(3rem,10vw,8rem)/1 Inter,sans-serif;letter-spacing:-.05em;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.28)}
+.marquee div span:nth-child(even){-webkit-text-stroke:0;background:var(--grad);-webkit-background-clip:text;background-clip:text}
+@keyframes mq{to{transform:translate3d(-50%,0,0)}}
+.hint{position:absolute;bottom:24px;left:50%;translate:-50% 0;color:var(--muted);font-size:.78rem;pointer-events:none}
+@media(pointer:fine){#landing .btn,#landing a{cursor:none}}
+</style>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" href="icons/favicon.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="CipherFIX" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <style>
+  /* PWA UI: install button + offline pill */
+  #pwaInstall{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:75;display:none;gap:8px;align-items:center;padding:12px 18px;border-radius:999px;border:0;color:#fff;font:600 .9rem Inter,sans-serif;cursor:pointer;background:linear-gradient(120deg,#4f7cff,#8b5cf6 50%,#22d3ee);box-shadow:0 10px 40px -8px rgba(99,102,241,.8)}
+  #pwaInstall.show{display:inline-flex}
+  #pwaToast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));translate:-50% 0;z-index:76;padding:10px 18px;border-radius:999px;background:rgba(15,20,40,.92);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;font:500 .85rem Inter,sans-serif;display:none;max-width:90vw;text-align:center}
+  #pwaToast.show{display:block}
+  html.standalone body{padding-top:env(safe-area-inset-top,0px)}
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<style id="judge-css">
+/* ===== JUDGE LAYER: QR modal, guided tour, floating actions ===== */
+#fab{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:75;display:flex;gap:8px;flex-wrap:wrap;max-width:calc(100vw - 150px)}
+#fab button,#qrm button{font:600 .85rem Inter,sans-serif;color:#fff;border:1px solid rgba(255,255,255,.14);background:rgba(10,14,28,.78);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding:10px 16px;border-radius:999px;cursor:pointer;transition:transform .2s,border-color .2s}
+#fab button:hover,#qrm button:hover{transform:translateY(-2px);border-color:rgba(139,130,255,.6)}
+#fab button:focus-visible,#qrm :focus-visible,#tour button:focus-visible{outline:2px solid #22d3ee;outline-offset:2px}
+#qrm{position:fixed;inset:0;z-index:95;display:none;place-items:center;padding:16px;background:rgba(3,5,12,.82);backdrop-filter:blur(10px)}
+#qrm.open{display:grid}
+#qrm .box{width:min(440px,100%);max-height:100%;overflow:auto;padding:28px;border-radius:28px;border:1px solid rgba(139,130,255,.35);text-align:center;color:#f4f6ff;font-family:Inter,sans-serif;
+background:radial-gradient(ellipse at 50% 0,rgba(99,102,241,.35),transparent 60%),#0a0e1c;box-shadow:0 0 120px -30px rgba(99,102,241,.7)}
+#qrm h3{margin:0 0 4px;font-size:1.4rem;letter-spacing:-.03em}#qrm p{margin:0 0 16px;color:#9aa3bd;font-size:.9rem}
+#qrcode{display:inline-grid;place-items:center;padding:16px;background:#fff;border-radius:20px;margin-bottom:16px}
+#qrcode img,#qrcode canvas{display:block;width:100%!important;height:auto!important;max-width:260px}
+#qrm.big .box{width:min(640px,100%)}#qrm.big #qrcode img,#qrm.big #qrcode canvas{max-width:min(70vh,520px)}
+#qrurl{width:100%;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#e2e8f0;font:500 .8rem 'JetBrains Mono',monospace;margin-bottom:12px}
+#qrm .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#qrnote{color:#fbbf24;font-size:.78rem;margin-top:12px;display:none}
+#tour{position:fixed;left:50%;translate:-50% 0;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:74;width:min(440px,calc(100vw - 24px));display:none;padding:16px 18px;border-radius:20px;color:#f4f6ff;font-family:Inter,sans-serif;
+border:1px solid rgba(139,130,255,.4);background:rgba(10,14,28,.92);backdrop-filter:blur(16px);box-shadow:0 20px 60px -20px rgba(79,124,255,.6)}
+#tour.on{display:block}body.landing-mode #tour{display:none!important}
+#tour small{color:#22d3ee;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.7rem}
+#tour b{display:block;font-size:1.05rem;margin:4px 0}#tour span{display:block;color:#9aa3bd;font-size:.85rem;line-height:1.5;margin-bottom:12px}
+#tour .row{display:flex;gap:8px;justify-content:flex-end}
+#tour button{font:600 .82rem Inter,sans-serif;padding:8px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:transparent;color:#fff;cursor:pointer}
+#tour button.go{border:0;background:linear-gradient(120deg,#4f7cff,#8b5cf6 50%,#22d3ee)}
+@media print{body>*:not(#qrm){display:none!important}#qrm{position:static;background:#fff}}
+</style>
+<style id="engine-css">
+.layerp{border:1px solid rgba(139,130,255,.3);border-radius:14px;padding:12px;margin-bottom:10px;background:linear-gradient(160deg,rgba(79,124,255,.10),rgba(139,92,246,.05))}
+.layerp-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;color:#cbd5e1;margin-bottom:8px}.layerp-h b{color:#fff}
+.layerp ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.layerp li{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;font-size:11px;border:1px solid rgba(255,255,255,.08);background:rgba(2,6,23,.6);opacity:0;animation:lay .45s ease forwards}
+.layerp li i{font-style:normal;font-weight:700;color:#22d3ee}.layerp li span{flex:1;color:#cbd5e1}.layerp li b{font-family:'JetBrains Mono',monospace}
+.layerp li.hit{border-color:rgba(244,63,94,.45)}.layerp li.hit b{color:#fda4af}.layerp li.ok b{color:#86efac}
+@keyframes lay{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.sev{display:inline-block;margin-right:8px;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase}
+.sev-High{background:rgba(244,63,94,.2);color:#fda4af}.sev-Medium{background:rgba(245,158,11,.2);color:#fcd34d}.sev-Low{background:rgba(148,163,184,.2);color:#cbd5e1}
+@media(prefers-reduced-motion:reduce){.layerp li{animation:none;opacity:1}}
+</style>
+</head>
+<body class="landing-mode min-h-screen bg-[#090d16] text-slate-100 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+<canvas id="gl" aria-hidden="true"></canvas>
+<div id="cur" aria-hidden="true"></div>
+<!-- ===== PREMIUM LAYER: decorative backgrounds ===== -->
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="grain" aria-hidden="true"></div>
+<div id="progress" aria-hidden="true"></div>
+<div id="glow" aria-hidden="true"></div>
+<div id="preloader" aria-hidden="true"><b>CIPHERFIX</b></div>
+
+<!-- ===== LANDING (shown until user clicks Launch / has an active session) ===== -->
+<div id="landing">
+  <header class="lp-nav" id="lpNav">
+    <div class="lp-wrap">
+      <a class="lp-logo" href="#top" aria-label="CipherFIX home"><span class="mk" aria-hidden="true">🛡</span>CipherFIX</a>
+      <nav class="lp-links" aria-label="Primary"><a href="#features">Features</a><a href="#workflow">Workflow</a><a href="#metrics">Metrics</a></nav>
+      <button class="btn primary" type="button" data-launch>Launch Studio</button>
+    </div>
+  </header>
+
+  <main id="top">
+    <div class="hero-track" id="heroTrack"><section class="hero" aria-labelledby="h1">
+      <div class="lp-wrap hero-grid">
+        <div class="hero-copy" id="heroCopy">
+          <span class="eyebrow">M7 Code Quality &amp; Auto-Repair</span>
+          <h1 class="lp-h1" id="h1" data-split>Automated pull request audit &amp; <span class="grad">auto-fix.</span></h1>
+          <p class="lead">Paste your code, get a clear review of risky patterns, then let AutoFix produce repaired code with a full change log, ready to push to GitHub.</p>
+          <div class="cta-row"><button class="btn primary" type="button" data-launch>Launch Studio →</button><button class="btn" type="button" data-judge>▶ Live demo, no signup</button><button class="btn" type="button" data-qr>📱 Scan to open</button><a class="btn" href="#features">Explore features</a></div>
+        </div>
+        <div class="stage" data-parallax-root>
+          <div class="layer" data-depth="-0.06" style="inset:10% 8% auto auto;width:180px;height:180px;border-radius:50%;background:var(--grad);filter:blur(50px);opacity:.5" aria-hidden="true"></div>
+          <div class="codecard card tilt" data-tilt data-depth="0.04" role="img" aria-label="Example of a code fix: an unsafe hard-coded secret replaced with an environment variable">
+            <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            <span class="del">- API_KEY = "sk-live-1234"</span>
+            <span class="add">+ API_KEY = os.environ["API_KEY"]</span>
+            <span style="display:block;padding:0 8px">&nbsp;</span>
+            <span class="del">- data = fetch(url)</span>
+            <span class="add">+ try: data = fetch(url)</span>
+            <span class="add">+ except Exception as err: log(err)</span>
+            <span class="badge card" style="top:-18px;right:-8px;color:#fda4af">⚠ 2 issues found</span>
+            <span class="badge card" style="bottom:-18px;left:-8px;color:#86efac">✓ Fixed &amp; logged</span>
+          </div>
+        </div>
+      </div>
+    </section></div>
+
+    <section class="sec" id="features" aria-labelledby="fh"><div class="lp-wrap">
+      <h2 id="fh" class="rv">Everything you need to ship <span class="grad">cleaner code.</span></h2>
+      <p class="sub rv" style="--i:1">Three focused tools, one workspace. Your code stays in your browser.</p>
+      <div class="bento">
+        <article class="card lift tilt rv" data-tilt style="--i:0"><div class="ico" aria-hidden="true">🔍</div><h3>1. Review Code</h3><p>A source code box with live line counts and a Code Check Result panel. Load a sample with issues or clean code for a silent test, then run the review.</p></article>
+        <article class="card lift tilt rv" data-tilt style="--i:1"><div class="ico" aria-hidden="true">🛠</div><h3>2. AutoFix</h3><p>Automatic Code Fixer with a Detected Errors &amp; Applied Fixes log and Repaired Code output you can copy or apply back to the editor.</p></article>
+        <article class="card lift tilt rv" data-tilt style="--i:2"><div class="ico" aria-hidden="true">⬆</div><h3>3. GitHub Upload</h3><p>Enter a repository URL or leave it blank for a new one, then open the official GitHub upload page directly.</p></article>
+        <article class="card lift tilt rv" data-tilt style="--i:3"><div class="ico" aria-hidden="true">📄</div><h3>Starter reviewer.py</h3><p>A ready-made bot file to copy or download and add to your repository.</p></article>
+        <article class="card lift tilt rv" data-tilt style="--i:4"><div class="ico" aria-hidden="true">🔐</div><h3>OTP sign-in</h3><p>Email or provider sign-in with a demo OTP, plus one-tap demo access.</p></article>
+      </div>
+    </div></section>
+
+    <section class="sec" id="workflow" aria-labelledby="wh"><div class="lp-wrap">
+      <h2 id="wh" class="rv">From paste to pull request in <span class="grad">three steps.</span></h2>
+      <p class="sub rv" style="--i:1">The same workflow as the studio, laid out end to end.</p>
+      <div class="steps">
+        <div class="card lift rv" style="--i:0"><div class="n grad">01</div><h3>Review</h3><p style="color:var(--muted);line-height:1.6">Drop code into the editor and run the check to surface problems.</p></div>
+        <div class="card lift rv" style="--i:1"><div class="n grad">02</div><h3>AutoFix</h3><p style="color:var(--muted);line-height:1.6">Apply automatic repairs and read the change log of every fix.</p></div>
+        <div class="card lift rv" style="--i:2"><div class="n grad">03</div><h3>Upload</h3><p style="color:var(--muted);line-height:1.6">Open GitHub’s upload page and push the repaired file.</p></div>
+      </div>
+    </div></section>
+
+    <div class="marquee" aria-hidden="true"><div><span>REVIEW</span><span>AUTOFIX</span><span>UPLOAD</span><span>CIPHERFIX</span><span>REVIEW</span><span>AUTOFIX</span><span>UPLOAD</span><span>CIPHERFIX</span></div></div>
+    <section class="sec" id="metrics" aria-label="Metrics"><div class="lp-wrap"><div class="stats">
+      <div class="card stat rv" style="--i:0"><b class="grad"><span data-count="3">0</span></b><span>Workflow stages</span></div>
+      <div class="card stat rv" style="--i:1"><b class="grad"><span data-count="2">0</span></b><span>Languages: Python &amp; JavaScript</span></div>
+      <div class="card stat rv" style="--i:2"><b class="grad"><span data-count="100">0</span>%</b><span>In-browser, no server</span></div>
+      <div class="card stat rv" style="--i:3"><b class="grad"><span data-count="0">0</span></b><span>alert() popups</span></div>
+    </div></div></section>
+
+    <section class="sec" aria-label="Get started"><div class="lp-wrap"><div class="banner rv">
+      <h2>Ready to audit your next <span class="grad">pull request?</span></h2>
+      <p class="sub" style="margin:0 auto var(--s4)">Sign in with the demo OTP and start reviewing in seconds.</p>
+      <div class="cta-row"><button class="btn primary" type="button" data-launch>Launch Studio →</button></div>
+    </div></div></section>
+  </main>
+
+  <footer class="lp-foot"><div class="lp-wrap">
+    <div class="foot-grid">
+      <div><a class="lp-logo" href="#top"><span class="mk" aria-hidden="true">🛡</span>CipherFIX</a><p style="color:var(--muted);font-size:.9rem;max-width:300px;line-height:1.6">Automated Pull Request Audit &amp; Auto-Fix.</p></div>
+      <div><h4>Product</h4><a href="#features">Features</a><a href="#workflow">Workflow</a><a href="#metrics">Metrics</a></div>
+      <div><h4>Studio</h4><a href="#" data-launch>Review Code</a><a href="#" data-launch>AutoFix</a><a href="#" data-launch>GitHub Upload</a></div>
+      <div><h4>Access</h4><a href="#" data-launch>Sign in</a><a href="#" data-launch data-demo>Try demo OTP</a></div>
+    </div>
+    <div class="card" style="display:flex;flex-wrap:wrap;align-items:center;gap:24px;padding:24px;margin-top:48px" aria-label="Open CipherFIX on your phone">
+      <div id="footQR" style="background:#fff;padding:10px;border-radius:14px;width:160px;height:160px;display:grid;place-items:center;flex:none" role="img" aria-label="QR code that opens CipherFIX"></div>
+      <div style="min-width:220px;flex:1">
+        <h4 style="margin:0 0 8px;font-size:.8rem;color:#fff;letter-spacing:.08em;text-transform:uppercase">Scan to open</h4>
+        <p style="color:var(--muted);font-size:.9rem;line-height:1.6;margin:0 0 12px">Point your phone camera at the code, or use the link:</p>
+        <a id="footLink" href="https://wwwcipherfixnetlifyapp.netlify.app/" target="_blank" rel="noopener" style="display:inline;color:#c7d2fe;word-break:break-all;font-size:.9rem">https://wwwcipherfixnetlifyapp.netlify.app/</a>
+      </div>
+    </div>
+    <p class="copy">© 2026 CipherFIX · M7 Code Quality &amp; Auto-Repair</p>
+  </div></footer>
+</div>
+
+
+  <!-- Toast Notification Banner (No alert() used anywhere) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- AUTHENTICATION GATE -->
+  <section id="auth-screen" class="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-gradient-to-b from-slate-950 via-[#0b1020] to-[#090d16]">
+    <div class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/95 shadow-2xl p-6 sm:p-8 backdrop-blur-md">
+      <div class="flex items-center gap-3.5 mb-6">
+        <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500/20 via-cyan-500/15 to-emerald-500/15 border border-indigo-400/35 flex items-center justify-center shrink-0 shadow-inner">
+          <svg class="w-6 h-6 text-indigo-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2l7 4v6c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6l7-4z"></path>
+            <path d="M9.5 12.5l1.8 1.8 3.4-3.6"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-semibold tracking-tight text-white">CipherFIX</h1>
+          <p class="text-xs text-slate-400">Automated Pull Request Audit & Auto-Fix</p>
+        </div>
+      </div>
+
+        <!-- Mode Switcher: Sign In vs Sign Up -->
+      <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-950 border border-slate-800 mb-5">
+        <button
+          id="tab-signin"
+          type="button"
+          onclick="setAuthMode('signin')"
+          class="py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white transition cursor-pointer"
+        >
+          Sign In
+        </button>
+        <button
+          id="tab-signup"
+          type="button"
+          onclick="setAuthMode('signup')"
+          class="py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition cursor-pointer"
+        >
+          Sign Up
+        </button>
+      </div>
+
+      <!-- Error / Status Box -->
+      <div id="auth-error-msg" class="hidden mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-200"></div>
+      <div id="auth-info-msg" class="hidden mb-4 rounded-xl border border-indigo-500/40 bg-indigo-500/10 px-3.5 py-2.5 text-xs text-indigo-200"></div>
+
+      <!-- Email verification form -->
+      <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+        <div id="signup-name-field" class="hidden">
+          <label for="auth-name" class="block text-xs font-medium text-slate-300 mb-1.5">Full Name</label>
+          <input
+            id="auth-name"
+            type="text"
+            placeholder="Aarav Sharma"
+            class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label for="auth-email" class="block text-xs font-medium text-slate-300 mb-1.5">Email Address</label>
+          <input
+            id="auth-email"
+            type="email"
+            required
+            placeholder="developer@example.com"
+            class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+
+        <!-- OTP Verification Box (Shown after requesting a code) -->
+        <div id="otp-verification-box" class="hidden rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 space-y-2.5">
+          <div class="text-xs font-medium text-amber-200">Email Verification Code</div>
+          <p class="text-[11px] text-amber-100/80 leading-relaxed">
+            Demo mode: this standalone page cannot send email. A temporary code will be shown above; enter it here to continue.
+          </p>
+          <p id="auth-otp-demo-code" class="rounded-lg border border-amber-500/30 bg-slate-950/80 px-3 py-2 text-center font-mono text-sm font-semibold tracking-[0.25em] text-amber-200"></p>
+          <input
+            id="auth-otp-input"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="6"
+            pattern="[0-9]{6}"
+            placeholder="Enter the 6-digit code"
+            class="w-full rounded-lg border border-amber-500/40 bg-slate-950 px-3 py-2 text-sm font-mono text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+          />
+          <div class="flex items-center justify-between gap-3">
+            <button type="button" onclick="cancelOtpFlow()" class="text-[11px] text-slate-300 hover:text-white underline underline-offset-2">Change email</button>
+            <button type="button" onclick="resendEmailOtp()" class="text-[11px] font-medium text-amber-200 hover:text-white underline underline-offset-2">Resend demo code</button>
+          </div>
+        </div>
+
+        <button
+          id="auth-submit-btn"
+          type="submit"
+          class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 py-2.5 text-sm font-semibold text-white transition cursor-pointer shadow-lg shadow-indigo-600/20"
+        >
+          Send Verification Code
+        </button>
+      </form>
+
+      <!-- Divider -->
+      <div class="relative my-5">
+        <div class="absolute inset-0 flex items-center">
+          <div class="w-full border-t border-slate-800"></div>
+        </div>
+        <div class="relative flex justify-center text-xs">
+          <span class="bg-slate-900 px-3 text-slate-400">Or use a demo provider flow</span>
+        </div>
+      </div>
+
+      <!-- Direct Google & GitHub Account Actions -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <button
+          type="button"
+          onclick="openProviderAuth('google')"
+          class="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800/80 py-2.5 px-3 text-xs font-medium text-slate-200 transition cursor-pointer"
+        >
+          <span class="font-bold text-sky-400">G</span>
+          <span>Google (Demo)</span>
+        </button>
+        <button
+          type="button"
+          onclick="openProviderAuth('github')"
+          class="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800/80 py-2.5 px-3 text-xs font-medium text-slate-200 transition cursor-pointer"
+        >
+          <span class="font-bold text-indigo-400">GH</span>
+          <span>GitHub (Demo)</span>
+        </button>
+      </div>
+
+      <!-- Built-In Provider Account Panel (Avoids external passkey loops) -->
+      <div id="provider-auth-panel" class="hidden mt-4 rounded-xl border border-indigo-500/30 bg-slate-950 p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <span id="provider-panel-title" class="text-xs font-semibold text-indigo-300">Account Sign-In</span>
+          <button type="button" onclick="closeProviderAuth()" class="text-xs text-slate-400 hover:text-white cursor-pointer">Close</button>
+        </div>
+        <p id="provider-panel-desc" class="text-[11px] text-slate-400 leading-relaxed"></p>
+        <div>
+          <label id="provider-id-label" for="provider-id-input" class="block text-xs text-slate-300 mb-1">Account Identifier</label>
+          <input
+            id="provider-id-input"
+            type="text"
+            placeholder="name@gmail.com"
+            class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onclick="submitProviderAuth()"
+          class="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 py-2 text-xs font-semibold text-white transition cursor-pointer"
+        >
+          Continue with Account
+        </button>
+      </div>
+
+      <!-- Quick Workspace Access -->
+      <div class="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+        <span>Want a sample login?</span>
+        <button
+          type="button"
+          onclick="instantDemoLogin()"
+          class="font-medium text-indigo-400 hover:text-indigo-300 underline underline-offset-4 cursor-pointer"
+        >
+          Try Demo OTP
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN WORKSPACE -->
+  <div id="app-shell" class="hidden min-h-screen flex flex-col">
+    <!-- Top Header -->
+    <header class="sticky top-0 z-30 border-b border-slate-800 bg-[#0b1020]/95 backdrop-blur-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500/20 via-cyan-500/15 to-emerald-500/15 border border-indigo-400/35 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-indigo-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2l7 4v6c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6l7-4z"></path>
+              <path d="M9.5 12.5l1.8 1.8 3.4-3.6"></path>
+            </svg>
+          </div>
+          <div class="truncate">
+            <span class="font-semibold text-sm sm:text-base text-white">CipherFIX</span>
+            <span class="hidden md:inline-block ml-2 text-xs text-slate-400">M7 Code Quality & Auto-Repair</span>
+          </div>
+        </div>
+
+        <!-- 3 Core Navigation Options -->
+        <nav class="flex items-center gap-1 sm:gap-2">
+          <button
+            id="nav-review"
+            type="button"
+            onclick="switchWorkspaceTab('review')"
+            class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-indigo-600 text-white transition cursor-pointer"
+          >
+            1. Review Code
+          </button>
+          <button
+            id="nav-autofix"
+            type="button"
+            onclick="switchWorkspaceTab('autofix')"
+            class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+          >
+            2. AutoFix
+          </button>
+          <button
+            id="nav-github"
+            type="button"
+            onclick="switchWorkspaceTab('github')"
+            class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+          >
+            3. GitHub Repository Upload
+          </button>
+        </nav>
+
+        <!-- User Session Controls -->
+        <div class="flex items-center gap-2.5 shrink-0">
+          <div class="hidden sm:flex flex-col items-end">
+            <span id="session-user-name" class="text-xs font-medium text-slate-200">Developer</span>
+            <span id="session-user-email" class="text-[11px] text-slate-400">dev@example.com</span>
+          </div>
+          <button
+            type="button"
+            onclick="logoutUser()"
+            class="rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition cursor-pointer"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Shared Code Source Bar -->
+    <section class="border-b border-slate-800/80 bg-slate-900/50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <span class="font-medium text-slate-300">Active Code Input:</span>
+          <button
+            type="button"
+            onclick="loadSampleCode('buggy')"
+            class="rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 px-2.5 py-1 text-slate-200 transition cursor-pointer"
+          >
+            Load Sample With Issues
+          </button>
+          <button
+            type="button"
+            onclick="loadSampleCode('clean')"
+            class="rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 px-2.5 py-1 text-slate-200 transition cursor-pointer"
+          >
+            Load Clean Code (Silent Test)
+          </button>
+          <button
+            type="button"
+            onclick="clearCodeEditor()"
+            class="rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 px-2.5 py-1 text-slate-400 hover:text-white transition cursor-pointer"
+          >
+            Clear Editor
+          </button>
+        </div>
+        <div id="code-stats-pill" class="text-xs font-mono text-slate-400">0 lines</div>
+      </div>
+    </section>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+
+      <!-- OPTION 1: REVIEW CODE -->
+      <div id="view-review" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left: Code Input Box -->
+        <div id="source-code-card" class="lg:col-span-6 flex flex-col rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-950/80 shrink-0">
+            <div class="min-w-0">
+              <h2 class="text-sm font-semibold text-white">Source Code Box</h2>
+              <p class="text-[11px] text-slate-400">Paste code of any length; line numbers stay synced as you scroll</p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <button
+                id="editor-fullscreen-btn"
+                type="button"
+                onclick="toggleEditorFullscreen()"
+                class="rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 transition cursor-pointer"
+              >
+                Expand Editor
+              </button>
+              <button
+                id="check-code-btn"
+                type="button"
+                onclick="runCodeReview()"
+                class="rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 px-4 py-2 text-xs font-semibold text-white transition cursor-pointer shadow"
+              >
+                Check Code
+              </button>
+            </div>
+          </div>
+
+          <div id="code-editor-pane" class="flex flex-1 min-h-[420px] bg-[#070b14] overflow-hidden">
+            <div
+              id="line-numbers"
+              aria-hidden="true"
+              class="w-12 min-w-12 shrink-0 overflow-hidden border-r border-slate-800/80 bg-slate-950/70 px-2 py-4 text-right font-mono text-xs leading-6 text-slate-500 select-none whitespace-pre"
+            >1</div>
+            <textarea
+              id="code-editor"
+              spellcheck="false"
+              wrap="off"
+              oninput="handleEditorInput()"
+              onscroll="syncEditorLineNumbers()"
+              onpaste="setTimeout(handleEditorInput, 0)"
+              placeholder="Paste your code here..."
+              class="code-input flex-1 w-full min-w-0 resize-none bg-transparent p-4 text-xs sm:text-sm leading-6 text-slate-100 placeholder-slate-600 focus:outline-none"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Right: Code Check Result with Light Red Highlight on Problem Lines -->
+        <div class="lg:col-span-6 flex flex-col rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-2 bg-slate-950/80 shrink-0">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Code Check Result</h2>
+              <p class="text-[11px] text-slate-400">Flagged lines are highlighted in light red</p>
+            </div>
+            <span id="review-verdict-badge" class="rounded-full px-3 py-1 text-xs font-semibold bg-slate-800 text-slate-300 shrink-0">
+              Ready to Check
+            </span>
+          </div>
+
+          <div id="review-results-container" class="p-4 sm:p-5 space-y-3 flex-1 overflow-y-auto max-h-[540px]">
+            <div class="rounded-xl border border-dashed border-slate-800 p-6 text-center text-xs text-slate-400">
+              Paste code on the left and click <span class="text-white font-medium">Check Code</span>.
+            </div>
+          </div>
+
+          <div id="inline-autofix-panel" class="hidden mx-4 mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-3"></div>
+
+          <div class="px-4 py-3 border-t border-slate-800 bg-slate-950/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <span id="review-summary-text" class="text-xs text-slate-400">0 issues detected</span>
+            <div class="flex items-center gap-2">
+              <button
+                id="inline-autofix-btn"
+                type="button"
+                onclick="runInlineAutoFix()"
+                class="hidden rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition cursor-pointer"
+              >
+                AutoFix Issues
+              </button>
+              <button
+                type="button"
+                onclick="runCodeReview()"
+                class="rounded-lg border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 text-xs font-medium text-indigo-300 transition cursor-pointer"
+              >
+                Check Code
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTION 2: AUTOFIX -->
+      <div id="view-autofix" class="hidden space-y-6">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-semibold text-white">Automatic Code Fixer & Change Log</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Inspect every location that had an issue and how it was automatically repaired</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onclick="runAutoFix(true)"
+              class="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white transition cursor-pointer"
+            >
+              Run AutoFix Now
+            </button>
+            <button
+              type="button"
+              onclick="copyFixedCode()"
+              class="rounded-xl border border-slate-700 bg-slate-950 hover:bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-200 transition cursor-pointer"
+            >
+              Copy Fixed Code
+            </button>
+          </div>
+        </div>
+
+        <!-- Explicit Audit Trail: Where Issues Were & What Was Fixed -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-white">Detected Errors & Applied Fixes Log</h3>
+            <span id="fix-count-badge" class="text-xs font-mono text-emerald-400">0 fixes applied</span>
+          </div>
+          <div id="autofix-changelog" class="space-y-2.5">
+            <div class="rounded-xl border border-dashed border-slate-800 p-4 text-xs text-slate-400">
+              Click <span class="text-white font-medium">Run AutoFix Now</span> to see every line where an issue was found and how it was fixed.
+            </div>
+          </div>
+        </div>
+
+        <!-- Repaired Code Output -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-800 bg-slate-950/60 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <h3 class="text-sm font-semibold text-white">Repaired Code Output</h3>
+              <span id="post-fix-status-pill" class="rounded-full px-2.5 py-0.5 text-[11px] font-medium bg-slate-800 text-slate-300">Not run yet</span>
+            </div>
+            <button
+              type="button"
+              onclick="applyFixedToEditorAndReview()"
+              class="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white transition cursor-pointer"
+            >
+              Send Fixed Code to Review
+            </button>
+          </div>
+          <pre id="autofix-output-code" class="p-4 text-xs sm:text-sm leading-6 text-emerald-200 bg-[#070b14] overflow-x-auto max-h-[420px]"># Fixed code will appear here after running AutoFix</pre>
+        </div>
+      </div>
+
+      <!-- OPTION 3: GITHUB REPOSITORY UPLOAD -->
+      <div id="view-github" class="hidden space-y-6">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 sm:p-6">
+          <h2 class="text-base font-semibold text-white">Direct GitHub Repository Upload</h2>
+          <p class="text-xs sm:text-sm text-slate-400 mt-1">
+            Enter a target GitHub repository URL (or leave blank to create a new repository) and launch the official GitHub upload page directly.
+          </p>
+
+          <div class="mt-5 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <div class="md:col-span-8">
+              <label for="github-repo-url" class="block text-xs font-medium text-slate-300 mb-1.5">
+                GitHub Repository URL (Optional — leave blank for New Repository)
+              </label>
+              <input
+                id="github-repo-url"
+                type="url"
+                placeholder="https://github.com/your-username/your-repo"
+                class="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div class="md:col-span-4">
+              <button
+                type="button"
+                onclick="openGitHubUploadPage()"
+                class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 py-2.5 px-4 text-sm font-semibold text-white transition cursor-pointer"
+              >
+                Open GitHub Upload Page
+              </button>
+            </div>
+          </div>
+
+          <div id="github-upload-status" class="mt-4 hidden rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-xs text-indigo-200"></div>
+        </div>
+
+        <!-- Ready Bot File for Upload -->
+        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Starter Repository File: reviewer.py</h3>
+              <p class="text-[11px] text-slate-400">Copy or download this starter script to include in your GitHub repository</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                onclick="copyStarterScript()"
+                class="rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition cursor-pointer"
+              >
+                Copy Script
+              </button>
+              <button
+                type="button"
+                onclick="downloadStarterScript()"
+                class="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition cursor-pointer"
+              >
+                Download reviewer.py
+              </button>
+            </div>
+          </div>
+          <pre id="starter-script-code" class="p-4 text-xs leading-6 text-slate-200 bg-[#070b14] overflow-x-auto max-h-[360px]"></pre>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_ACCOUNTS_KEY = "pr_guardian_accounts_v1";
+    const STORAGE_SESSION_KEY = "pr_guardian_session_v1";
+
+    let authMode = "signin";
+    let authStep = "email";
+    let activeProvider = null;
+    let activeOtpCode = "";
+    let activeOtpExpiresAt = 0;
+    let pendingAuth = null;
+    let lastFixedCode = "";
+    let lastFixedSource = "";
+    let lastFixesApplied = 0;
+    let lastFixesSkipped = 0;
+    let lastReviewedCode = null;
+
+    const SAMPLE_BUGGY_CODE = `import requests
+
+API_KEY = "sk_live_9876543210secretkey"
+DB_PASSWORD = "SuperSecretPassword2026"
+
+def fetch_user_profile(user_id):
+    resp = requests.get(f"https://api.example.com/users/{user_id}")
+    return resp.json()
+
+def process_large_batch(items):
+    total = 0
+    step_1 = 1
+    step_2 = 2
+    step_3 = 3
+    step_4 = 4
+    step_5 = 5
+    step_6 = 6
+    step_7 = 7
+    step_8 = 8
+    step_9 = 9
+    step_10 = 10
+    step_11 = 11
+    step_12 = 12
+    step_13 = 13
+    step_14 = 14
+    step_15 = 15
+    step_16 = 16
+    step_17 = 17
+    step_18 = 18
+    step_19 = 19
+    step_20 = 20
+    step_21 = 21
+    step_22 = 22
+    step_23 = 23
+    step_24 = 24
+    step_25 = 25
+    step_26 = 26
+    step_27 = 27
+    step_28 = 28
+    step_29 = 29
+    step_30 = 30
+    step_31 = 31
+    step_32 = 32
+    step_33 = 33
+    step_34 = 34
+    step_35 = 35
+    step_36 = 36
+    step_37 = 37
+    step_38 = 38
+    step_39 = 39
+    step_40 = 40
+    step_41 = 41
+    step_42 = 42
+    step_43 = 43
+    step_44 = 44
+    step_45 = 45
+    step_46 = 46
+    step_47 = 47
+    step_48 = 48
+    step_49 = 49
+    step_50 = 50
+    step_51 = 51
+    total = len(items) + step_51
+    return total
+`;
+
+    const SAMPLE_CLEAN_CODE = `import os
+import requests
+
+def fetch_user_profile(user_id: str):
+    api_token = os.getenv("SERVICE_TOKEN", "")
+    try:
+        response = requests.get(
+            f"https://api.example.com/users/{user_id}",
+            headers={"Authorization": f"Bearer {api_token}"},
+            timeout=5,
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        return {"error": str(exc)}
+`;
+
+    const STARTER_REVIEWER_SCRIPT = `import os
+import re
+
+SECRET_PATTERN = re.compile(r"""\\b[\\w]*(?:api[_-]?key|secret(?:[_-]?key)?|password|passwd|token|credential|private[_-]?key|bearer)[\\w]*[\"']?\\s*[:=]\\s*[\"'][^\"']{2,}[\"']""", re.IGNORECASE)
+RISKY_CALL_PATTERN = re.compile(r"\\b(?:open|requests\\s*\\.\\s*(?:get|post|put|delete|patch|head)|httpx\\s*\\.\\s*(?:get|post|put|delete|patch|head)|urllib\\s*\\.\\s*request\\s*\\.\\s*urlopen|json\\s*\\.\\s*loads?|subprocess\\s*\\.\\s*(?:run|Popen|call|check_output|check_call)|shutil\\s*\\.\\s*(?:copy|move|rmtree)|os\\s*\\.\\s*(?:remove|rename|replace|makedirs|system)|sqlite3\\s*\\.\\s*connect|socket\\s*\\.\\s*create_connection|eval|exec)\\s*\\(", re.IGNORECASE)
+
+def _indent_width(line: str) -> int:
+    return len(line[:len(line) - len(line.lstrip(" \\t"))].expandtabs(8))
+
+def _has_matching_except(lines, target_index):
+    target_indent = _indent_width(lines[target_index])
+    for start in range(target_index - 1, -1, -1):
+        if not re.match(r"^\\s*try\\s*:\\s*$", lines[start]):
+            continue
+        try_indent = _indent_width(lines[start])
+        if try_indent >= target_indent:
+            continue
+        end = start + 1
+        while end < len(lines):
+            if not lines[end].strip() or lines[end].lstrip().startswith("#"):
+                end += 1
+                continue
+            if _indent_width(lines[end]) <= try_indent:
+                break
+            end += 1
+        if target_index < end and end < len(lines) and _indent_width(lines[end]) == try_indent and re.match(r"^\\s*except\\b", lines[end]):
+            return True
+    return False
+
+def review_source(source_code: str):
+    lines = source_code.splitlines()
+    findings = []
+
+    for idx, line in enumerate(lines):
+        stripped = line.lstrip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if SECRET_PATTERN.search(line):
+            findings.append({"line": idx + 1, "type": "hardcoded_secret", "message": "Move secret values into environment variables."})
+        if RISKY_CALL_PATTERN.search(line) and not _has_matching_except(lines, idx):
+            findings.append({"line": idx + 1, "type": "missing_error_handling", "message": "Risky operation is not inside a try block with a matching except."})
+
+    return sorted(findings, key=lambda item: item["line"])
+
+if __name__ == "__main__":
+    sample = os.getenv("SAMPLE_CODE", "def ok():\\n    return True\\n")
+    print(review_source(sample))
+`;
+
+    function showToast(message, variant = "info") {
+      const container = document.getElementById("toast-container");
+      if (!container) return;
+
+      const palette = {
+        info: "border-indigo-500/40 bg-slate-900 text-indigo-100",
+        success: "border-emerald-500/40 bg-slate-900 text-emerald-100",
+        error: "border-rose-500/40 bg-slate-900 text-rose-100",
+      };
+
+      const card = document.createElement("div");
+      card.className = `pointer-events-auto rounded-xl border px-4 py-3 text-xs font-medium shadow-xl transition ${palette[variant] || palette.info}`;
+      card.textContent = message;
+      container.appendChild(card);
+
+      setTimeout(() => {
+        card.remove();
+      }, 3200);
+    }
+
+    function getRegisteredAccounts() {
+      try {
+        const raw = localStorage.getItem(STORAGE_ACCOUNTS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (err) {
+        return [];
+      }
+    }
+
+    function saveRegisteredAccounts(accounts) {
+      try {
+        localStorage.setItem(STORAGE_ACCOUNTS_KEY, JSON.stringify(accounts));
+      } catch (err) {
+        // Ignore storage quota errors in restricted frames
+      }
+    }
+
+    function setActiveSession(user) {
+      const verifiedUser = user && user.email ? { ...user, otpVerified: true, verifiedAt: Date.now() } : null;
+      try {
+        if (verifiedUser) localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(verifiedUser));
+        else localStorage.removeItem(STORAGE_SESSION_KEY);
+      } catch (err) {
+        // Ignore storage errors
+      }
+      renderSessionUI(verifiedUser);
+    }
+
+    function getActiveSession() {
+      try {
+        const raw = localStorage.getItem(STORAGE_SESSION_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function renderSessionUI(user) {
+      const authScreen = document.getElementById("auth-screen");
+      const appShell = document.getElementById("app-shell");
+
+      if (user && user.email && user.otpVerified === true) {
+        authScreen.classList.add("hidden");
+        appShell.classList.remove("hidden");
+        document.getElementById("session-user-name").textContent = user.name || "Developer";
+        document.getElementById("session-user-email").textContent = user.email;
+      } else {
+        try {
+          localStorage.removeItem(STORAGE_SESSION_KEY);
+        } catch (err) {
+          // Ignore storage errors
+        }
+        appShell.classList.add("hidden");
+        authScreen.classList.remove("hidden");
+      }
+    }
+
+    function clearAuthMessages() {
+      const errEl = document.getElementById("auth-error-msg");
+      const infoEl = document.getElementById("auth-info-msg");
+      errEl.textContent = "";
+      errEl.classList.add("hidden");
+      infoEl.textContent = "";
+      infoEl.classList.add("hidden");
+    }
+
+    function showAuthError(msg) {
+      const errEl = document.getElementById("auth-error-msg");
+      const infoEl = document.getElementById("auth-info-msg");
+      infoEl.classList.add("hidden");
+      errEl.textContent = msg;
+      errEl.classList.remove("hidden");
+    }
+
+    function showAuthInfo(msg) {
+      const errEl = document.getElementById("auth-error-msg");
+      const infoEl = document.getElementById("auth-info-msg");
+      errEl.classList.add("hidden");
+      infoEl.textContent = msg;
+      infoEl.classList.remove("hidden");
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      authStep = "email";
+      activeOtpCode = "";
+      activeOtpExpiresAt = 0;
+      pendingAuth = null;
+      clearAuthMessages();
+
+      const tabSignin = document.getElementById("tab-signin");
+      const tabSignup = document.getElementById("tab-signup");
+      const nameField = document.getElementById("signup-name-field");
+      const otpBox = document.getElementById("otp-verification-box");
+      const submitBtn = document.getElementById("auth-submit-btn");
+      const emailInput = document.getElementById("auth-email");
+      const nameInput = document.getElementById("auth-name");
+      const otpInput = document.getElementById("auth-otp-input");
+      nameInput.disabled = false;
+      document.getElementById("auth-otp-demo-code").textContent = "";
+
+      if (mode === "signup") {
+        tabSignup.className = "py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white transition cursor-pointer";
+        tabSignin.className = "py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition cursor-pointer";
+        nameField.classList.remove("hidden");
+        nameInput.required = true;
+        submitBtn.textContent = "Send Verification Code";
+      } else {
+        tabSignin.className = "py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white transition cursor-pointer";
+        tabSignup.className = "py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition cursor-pointer";
+        nameField.classList.add("hidden");
+        nameInput.required = false;
+        submitBtn.textContent = "Send Verification Code";
+      }
+
+      emailInput.disabled = false;
+      emailInput.classList.remove("opacity-60");
+      otpBox.classList.add("hidden");
+      otpInput.value = "";
+    }
+
+    function handleAuthSubmit(event) {
+      event.preventDefault();
+      clearAuthMessages();
+
+      const email = document.getElementById("auth-email").value.trim().toLowerCase();
+      const nameInput = document.getElementById("auth-name").value.trim();
+      const otpInput = document.getElementById("auth-otp-input").value.trim();
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showAuthError("Please enter a valid email address.");
+        return;
+      }
+
+      const accounts = getRegisteredAccounts();
+
+      if (authStep === "email") {
+        const exists = accounts.some((acc) => acc.email.toLowerCase() === email);
+        if (authMode === "signup" && exists) {
+          showAuthError("An account with this email already exists. Please switch to Sign In.");
+          return;
+        }
+        if (authMode === "signin" && !exists) {
+          showAuthError("No account found for this email. Please Sign Up first.");
+          return;
+        }
+
+        requestDemoOtp(email, { mode: authMode, name: nameInput, provider: "email" });
+        return;
+      }
+
+      if (!pendingAuth || pendingAuth.email !== email) {
+        showAuthError("Request a new verification code for this email.");
+        return;
+      }
+      if (Date.now() > activeOtpExpiresAt) {
+        showAuthError("This code expired. Request a new code to continue.");
+        return;
+      }
+      if (!/^\d{6}$/.test(otpInput) || otpInput !== activeOtpCode) {
+        showAuthError("That code is incorrect. Enter the latest 6-digit code shown above.");
+        return;
+      }
+
+      let account = accounts.find((acc) => acc.email.toLowerCase() === email);
+      if (pendingAuth.mode === "signup" || (!account && pendingAuth.provider !== "email")) {
+        const name = pendingAuth.name || email.split("@")[0];
+        account = { name, email, provider: pendingAuth.provider || "email" };
+        accounts.push(account);
+        saveRegisteredAccounts(accounts);
+      }
+      if (!account) {
+        showAuthError("No account found for this email. Please Sign Up first.");
+        return;
+      }
+
+      const verifiedProvider = pendingAuth.provider || account.provider || "email";
+      activeOtpCode = "";
+      activeOtpExpiresAt = 0;
+      pendingAuth = null;
+      setActiveSession({ name: account.name || email.split("@")[0], email, provider: verifiedProvider });
+      showToast(authMode === "signup" ? "Account created after OTP verification." : "Email verified. Signed in successfully.", "success");
+    }
+
+    function requestDemoOtp(email, details) {
+      activeOtpCode = String(Math.floor(100000 + Math.random() * 900000));
+      activeOtpExpiresAt = Date.now() + 5 * 60 * 1000;
+      pendingAuth = { email, ...details };
+      authStep = "otp";
+
+      const emailInput = document.getElementById("auth-email");
+      const otpBox = document.getElementById("otp-verification-box");
+      const submitBtn = document.getElementById("auth-submit-btn");
+      emailInput.disabled = true;
+      emailInput.classList.add("opacity-60");
+      document.getElementById("auth-name").disabled = true;
+      document.getElementById("auth-otp-input").value = "";
+      document.getElementById("auth-otp-demo-code").textContent = `DEMO OTP  ${activeOtpCode}`;
+      otpBox.classList.remove("hidden");
+      submitBtn.textContent = authMode === "signup" ? "Verify OTP & Create Account" : "Verify OTP & Sign In";
+      showAuthInfo(`A local demo code was created for ${email}. No email was sent; the code expires in 5 minutes.`);
+      document.getElementById("auth-otp-input").focus();
+    }
+
+    function resendEmailOtp() {
+      if (!pendingAuth) return;
+      const details = { ...pendingAuth };
+      requestDemoOtp(details.email, details);
+    }
+
+    function cancelOtpFlow() {
+      setAuthMode(authMode);
+      showAuthInfo("Verification cancelled. Enter an email to request a new code.");
+      document.getElementById("auth-email").focus();
+    }
+
+    function openProviderAuth(provider) {
+      activeProvider = provider;
+      clearAuthMessages();
+
+      const panel = document.getElementById("provider-auth-panel");
+      const title = document.getElementById("provider-panel-title");
+      const desc = document.getElementById("provider-panel-desc");
+      const idLabel = document.getElementById("provider-id-label");
+      const idInput = document.getElementById("provider-id-input");
+
+      panel.classList.remove("hidden");
+
+      if (provider === "google") {
+        title.textContent = "Google Email (Demo)";
+        desc.textContent = "This standalone demo does not connect to Google. Enter an email and verify the locally displayed demo OTP.";
+        idLabel.textContent = "Gmail Address";
+        idInput.type = "email";
+        idInput.placeholder = "yourname@gmail.com";
+      } else {
+        title.textContent = "GitHub Email (Demo)";
+        desc.textContent = "This standalone demo does not connect to GitHub. Enter your account email and verify the locally displayed demo OTP.";
+        idLabel.textContent = "Account Email";
+        idInput.type = "email";
+        idInput.placeholder = "developer@example.com";
+      }
+      idInput.focus();
+    }
+
+    function closeProviderAuth() {
+      activeProvider = null;
+      document.getElementById("provider-auth-panel").classList.add("hidden");
+    }
+
+    function submitProviderAuth() {
+      const rawId = document.getElementById("provider-id-input").value.trim();
+      const provider = activeProvider;
+      const normalizedEmail = rawId.toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        showAuthError("Please enter a valid email address to request a verification code.");
+        return;
+      }
+
+      if (provider === "google" && !/^[^\s@]+@gmail\.com$/i.test(normalizedEmail)) {
+        showAuthError("Please enter a Gmail address (for example, name@gmail.com).");
+        return;
+      }
+
+      const displayName = normalizedEmail.split("@")[0];
+      setAuthMode("signin");
+      document.getElementById("auth-email").value = normalizedEmail;
+      closeProviderAuth();
+      requestDemoOtp(normalizedEmail, { mode: "signin", name: displayName, provider: provider || "email" });
+    }
+
+    function instantDemoLogin() {
+      clearAuthMessages();
+      const email = "demo.reviewer@prguardian.local";
+      const accounts = getRegisteredAccounts();
+      if (!accounts.some((account) => account.email.toLowerCase() === email)) {
+        accounts.push({ name: "Demo Reviewer", email, provider: "demo" });
+        saveRegisteredAccounts(accounts);
+      }
+      setAuthMode("signin");
+      document.getElementById("auth-email").value = email;
+      requestDemoOtp(email, { mode: "signin", name: "Demo Reviewer", provider: "demo" });
+    }
+
+    function logoutUser() {
+      try {
+        localStorage.removeItem(STORAGE_SESSION_KEY);
+      } catch (err) {
+        // Ignore storage errors
+      }
+      renderSessionUI(null);
+      setAuthMode("signin");
+      showToast("Signed out.", "info");
+    }
+
+    function switchWorkspaceTab(tabName) {
+      const views = {
+        review: document.getElementById("view-review"),
+        autofix: document.getElementById("view-autofix"),
+        github: document.getElementById("view-github"),
+      };
+
+      const navs = {
+        review: document.getElementById("nav-review"),
+        autofix: document.getElementById("nav-autofix"),
+        github: document.getElementById("nav-github"),
+      };
+
+      Object.keys(views).forEach((key) => {
+        if (key === tabName) {
+          views[key].classList.remove("hidden");
+          navs[key].className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-indigo-600 text-white transition cursor-pointer";
+        } else {
+          views[key].classList.add("hidden");
+          navs[key].className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer";
+        }
+      });
+
+      if (tabName === "autofix") {
+        const currentCode = document.getElementById("code-editor").value;
+        if (lastFixedSource !== currentCode) runAutoFix(false);
+      }
+    }
+
+    function handleEditorInput() {
+      const editor = document.getElementById("code-editor");
+      const lines = editor.value.split("\n");
+      const count = editor.value.length === 0 ? 0 : lines.length;
+
+      document.getElementById("code-stats-pill").textContent = `${count} ${count === 1 ? "line" : "lines"}`;
+      if (lastFixedSource && editor.value !== lastFixedSource) lastFixedCode = "";
+
+      const displayLines = Math.max(1, lines.length);
+      const numbers = [];
+      for (let i = 1; i <= displayLines; i++) {
+        numbers.push(i);
+      }
+      document.getElementById("line-numbers").textContent = numbers.join("\n");
+      syncEditorLineNumbers();
+
+      if (lastReviewedCode !== null && editor.value !== lastReviewedCode) {
+        lastReviewedCode = null;
+        document.getElementById("inline-autofix-btn").classList.add("hidden");
+        const inlinePanel = document.getElementById("inline-autofix-panel");
+        inlinePanel.classList.add("hidden");
+        inlinePanel.innerHTML = "";
+        document.getElementById("review-verdict-badge").textContent = "Check Again";
+        document.getElementById("review-verdict-badge").className = "rounded-full px-3 py-1 text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30";
+        document.getElementById("review-summary-text").textContent = "Code changed — run Check Code again";
+        document.getElementById("review-results-container").innerHTML = `
+          <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5 text-xs text-amber-100">
+            The editor changed after this review. Run <span class="font-semibold">Check Code</span> again to refresh the results.
+          </div>
+        `;
+      }
+    }
+
+    function syncEditorLineNumbers() {
+      const editor = document.getElementById("code-editor");
+      const lineNumbers = document.getElementById("line-numbers");
+      if (editor && lineNumbers) lineNumbers.scrollTop = editor.scrollTop;
+    }
+
+    function updateEditorFullscreenButton() {
+      const card = document.getElementById("source-code-card");
+      const button = document.getElementById("editor-fullscreen-btn");
+      if (!card || !button) return;
+      const expanded = document.fullscreenElement === card || card.classList.contains("editor-fullscreen-fallback");
+      button.textContent = expanded ? "Exit Full Screen" : "Expand Editor";
+    }
+
+    function toggleEditorFullscreen() {
+      const card = document.getElementById("source-code-card");
+      if (!card) return;
+
+      if (card.classList.contains("editor-fullscreen-fallback")) {
+        card.classList.remove("editor-fullscreen-fallback");
+        updateEditorFullscreenButton();
+        return;
+      }
+      if (document.fullscreenElement === card) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        return;
+      }
+
+      if (!card.requestFullscreen) {
+        card.classList.add("editor-fullscreen-fallback");
+        updateEditorFullscreenButton();
+        return;
+      }
+      try {
+        const request = card.requestFullscreen();
+        if (request && typeof request.catch === "function") {
+          request.catch(() => {
+            card.classList.add("editor-fullscreen-fallback");
+            updateEditorFullscreenButton();
+          });
+        }
+      } catch (err) {
+        card.classList.add("editor-fullscreen-fallback");
+        updateEditorFullscreenButton();
+      }
+    }
+
+    function loadSampleCode(type) {
+      const editor = document.getElementById("code-editor");
+      editor.value = type === "clean" ? SAMPLE_CLEAN_CODE : SAMPLE_BUGGY_CODE;
+      handleEditorInput();
+      runCodeReview();
+    }
+
+    function clearCodeEditor() {
+      const editor = document.getElementById("code-editor");
+      editor.value = "";
+      lastReviewedCode = null;
+      handleEditorInput();
+      lastFixedCode = "";
+      lastFixedSource = "";
+      document.getElementById("inline-autofix-btn").classList.add("hidden");
+      document.getElementById("inline-autofix-panel").classList.add("hidden");
+      document.getElementById("inline-autofix-panel").innerHTML = "";
+      document.getElementById("review-verdict-badge").textContent = "Ready to Check";
+      document.getElementById("review-verdict-badge").className = "rounded-full px-3 py-1 text-xs font-semibold bg-slate-800 text-slate-300";
+      document.getElementById("review-summary-text").textContent = "0 issues detected";
+      document.getElementById("review-results-container").innerHTML = `
+        <div class="rounded-xl border border-dashed border-slate-800 p-6 text-center text-xs text-slate-400">
+          Editor cleared. Paste code and click <span class="text-white font-medium">Check Code</span>.
+        </div>
+      `;
+    }
+
+    function maskCode(sourceText) {
+      const chars = sourceText.split("");
+      let quote = "";
+      let tripleQuote = false;
+      let escaped = false;
+      let lineComment = false;
+      let blockComment = false;
+
+      for (let i = 0; i < chars.length; i++) {
+        const ch = sourceText[i];
+        const next = sourceText[i + 1] || "";
+        const next2 = sourceText[i + 2] || "";
+
+        if (ch === "\n") {
+          lineComment = false;
+          if (!tripleQuote) escaped = false;
+          continue;
+        }
+
+        if (lineComment || blockComment) {
+          chars[i] = " ";
+          if (blockComment && ch === "*" && next === "/") {
+            chars[i + 1] = " ";
+            blockComment = false;
+            i += 1;
+          } else if (!blockComment && ch === "\r") {
+            lineComment = false;
+          }
+          continue;
+        }
+
+        if (quote) {
+          chars[i] = " ";
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+          if (ch === "\\") {
+            escaped = true;
+            continue;
+          }
+          if (tripleQuote && ch === quote && next === quote && next2 === quote) {
+            chars[i + 1] = " ";
+            chars[i + 2] = " ";
+            i += 2;
+            quote = "";
+            tripleQuote = false;
+          } else if (!tripleQuote && ch === quote) {
+            quote = "";
+          }
+          continue;
+        }
+
+        if (ch === "#" || (ch === "/" && next === "/")) {
+          chars[i] = " ";
+          if (ch === "/") {
+            chars[i + 1] = " ";
+            i += 1;
+          }
+          lineComment = true;
+          continue;
+        }
+        if (ch === "/" && next === "*") {
+          chars[i] = " ";
+          chars[i + 1] = " ";
+          blockComment = true;
+          i += 1;
+          continue;
+        }
+        if (ch === "'" || ch === '"' || ch === "`") {
+          quote = ch;
+          tripleQuote = ch !== "`" && next === ch && next2 === ch;
+          chars[i] = " ";
+          if (tripleQuote) {
+            chars[i + 1] = " ";
+            chars[i + 2] = " ";
+            i += 2;
+          }
+        }
+      }
+
+      return chars.join("");
+    }
+
+    function normalizedIdentifier(name) {
+      return name
+        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .replace(/[^a-zA-Z0-9]+/g, "_")
+        .toLowerCase()
+        .split("_")
+        .filter(Boolean);
+    }
+
+    function isSensitiveIdentifier(name) {
+      const parts = normalizedIdentifier(name);
+      return parts.some((part) => ["secret", "secretkey", "password", "passwd", "pass", "token", "credential", "bearer"].includes(part)) ||
+        (parts.includes("api") && parts.includes("key")) || parts.includes("apikey") ||
+        (parts.includes("private") && parts.includes("key")) || parts.includes("privatekey");
+    }
+
+    function getSecretAssignment(line) {
+      const assignment = line.match(/^(\s*)((?:(?:export|public|private|static|final)\s+)*(?:(?:const|let|var)\s+)?)([A-Za-z_$][\w$-]*)(\s*(?::[^=]+)?\s*=\s*)(["'`])((?:\\.|(?!\5)[^\\\n]){1,})\5(\s*;?\s*(?:#.*|\/\/.*)?)$/);
+      if (assignment && isSensitiveIdentifier(assignment[3])) {
+        return {
+          indent: assignment[1],
+          declaration: assignment[2],
+          name: assignment[3],
+          assignment: assignment[4],
+          trailing: assignment[7],
+          isJavaScript: /\b(?:const|let|var)\b/.test(assignment[2]),
+        };
+      }
+
+      const mapping = line.match(/(["']?)([A-Za-z_$][\w$-]*)\1(\s*:\s*)(["'`])((?:\\.|(?!\4)[^\\\n]){1,})\4/);
+      if (!mapping || !isSensitiveIdentifier(mapping[2])) return null;
+      return {
+        isMapping: true,
+        start: mapping.index,
+        original: mapping[0],
+        name: mapping[2],
+        keyPrefix: mapping[1],
+        keySuffix: mapping[1],
+        separator: mapping[3],
+      };
+    }
+
+    function indentationWidth(line) {
+      const indent = (line.match(/^[\t ]*/) || [""])[0];
+      return indent.replace(/\t/g, "        ").length;
+    }
+
+    function hasPythonErrorHandler(lines, maskedLines, targetIndex) {
+      const targetIndent = indentationWidth(lines[targetIndex]);
+      for (let start = targetIndex - 1; start >= 0; start--) {
+        if (!/^\s*try\s*:\s*$/.test(maskedLines[start])) continue;
+        const tryIndent = indentationWidth(lines[start]);
+        if (tryIndent >= targetIndent) continue;
+
+        let end = start + 1;
+        while (end < lines.length) {
+          if (!maskedLines[end].trim()) {
+            end += 1;
+            continue;
+          }
+          if (indentationWidth(lines[end]) <= tryIndent) break;
+          end += 1;
+        }
+
+        if (targetIndex < end && end < lines.length && indentationWidth(lines[end]) === tryIndent && /^\s*except\b/.test(maskedLines[end])) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function hasJavaScriptErrorHandler(lines, maskedLines, targetIndex) {
+      for (let start = targetIndex; start >= 0; start--) {
+        const tryMatch = maskedLines[start].match(/\btry\s*\{/);
+        if (!tryMatch) continue;
+
+        let depth = 0;
+        let opened = false;
+        let closeLine = -1;
+        for (let lineIndex = start; lineIndex < lines.length && closeLine < 0; lineIndex++) {
+          const row = maskedLines[lineIndex];
+          for (let col = lineIndex === start ? tryMatch.index + tryMatch[0].length - 1 : 0; col < row.length; col++) {
+            if (row[col] === "{") {
+              depth += 1;
+              opened = true;
+            } else if (row[col] === "}" && opened) {
+              depth -= 1;
+              if (depth === 0) {
+                closeLine = lineIndex;
+                break;
+              }
+            }
+          }
+        }
+
+        if (opened && closeLine >= targetIndex && closeLine >= 0) {
+          const afterTry = maskedLines.slice(closeLine, Math.min(lines.length, closeLine + 3)).join("\n");
+          if (/\bcatch(?:\s*\([^)]*\))?/.test(afterTry)) return true;
+        }
+      }
+      return false;
+    }
+
+    function hasErrorHandler(lines, maskedLines, targetIndex) {
+      return hasPythonErrorHandler(lines, maskedLines, targetIndex) || hasJavaScriptErrorHandler(lines, maskedLines, targetIndex);
+    }
+
+    function analyzeCode(sourceText) {
+      const lines = sourceText.split("\n");
+      const maskedLines = maskCode(sourceText).split("\n");
+      const issues = [];
+      const riskyCallRegex = /\b(?:open|requests\s*\.\s*(?:get|post|put|delete|patch|head)|httpx\s*\.\s*(?:get|post|put|delete|patch|head)|urllib\s*\.\s*request\s*\.\s*urlopen|json\s*\.\s*loads?|subprocess\s*\.\s*(?:run|Popen|call|check_output|check_call)|shutil\s*\.\s*(?:copy|move|rmtree)|os\s*\.\s*(?:remove|rename|replace|makedirs|system)|sqlite3\s*\.\s*connect|socket\s*\.\s*create_connection|eval|exec|fetch|axios\s*\.\s*(?:get|post|put|delete|patch))\s*\(/i;
+
+      lines.forEach((line, idx) => {
+        const codeLine = maskedLines[idx] || "";
+        if (!codeLine.trim()) return;
+
+        if (getSecretAssignment(line)) {
+          issues.push({
+            line: idx + 1,
+            category: "Hard-Coded Secret",
+            severity: "High",
+            detail: "Sensitive credential literal found directly in source code.",
+          });
+        }
+
+        if (riskyCallRegex.test(codeLine) && !hasErrorHandler(lines, maskedLines, idx)) {
+          issues.push({
+            line: idx + 1,
+            category: "Missing Error Handling",
+            severity: "Medium",
+            detail: "Risky I/O, execution, or network call is not inside a matching try/except or try/catch block.",
+          });
+        }
+      });
+
+      issues.sort((a, b) => a.line - b.line || a.category.localeCompare(b.category));
+      return issues;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function runCodeReview() {
+      const code = document.getElementById("code-editor").value;
+      const lines = code.split("\n");
+      const container = document.getElementById("review-results-container");
+      const badge = document.getElementById("review-verdict-badge");
+      const summaryText = document.getElementById("review-summary-text");
+      const autoFixButton = document.getElementById("inline-autofix-btn");
+      const inlinePanel = document.getElementById("inline-autofix-panel");
+
+      if (!code.trim()) {
+        lastReviewedCode = null;
+        autoFixButton.classList.add("hidden");
+        inlinePanel.classList.add("hidden");
+        inlinePanel.innerHTML = "";
+        badge.textContent = "Empty Input";
+        badge.className = "rounded-full px-3 py-1 text-xs font-semibold bg-slate-800 text-slate-300";
+        summaryText.textContent = "0 issues detected";
+        container.innerHTML = `
+          <div class="rounded-xl border border-dashed border-slate-800 p-6 text-center text-xs text-slate-400">
+            Please paste some code in the editor first.
+          </div>
+        `;
+        return;
+      }
+
+      const issues = analyzeCode(code);
+      lastReviewedCode = code;
+      inlinePanel.classList.add("hidden");
+      inlinePanel.innerHTML = "";
+
+      if (issues.length === 0) {
+        autoFixButton.classList.add("hidden");
+        badge.textContent = "Code Is Valid";
+        badge.className = "rounded-full px-3 py-1 text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
+        summaryText.textContent = "0 issues — code looks clean";
+        container.innerHTML = `
+          <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-xs text-emerald-200 space-y-1">
+            <div class="font-semibold">No Issues Found</div>
+            <p class="text-emerald-100/80">No issues were detected in your code.</p>
+          </div>
+        `;
+        return;
+      }
+
+      autoFixButton.classList.remove("hidden");
+      badge.textContent = `${issues.length} ${issues.length === 1 ? "Issue" : "Issues"} Found`;
+      badge.className = "rounded-full px-3 py-1 text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30";
+      summaryText.textContent = `${issues.length} ${issues.length === 1 ? "issue" : "issues"} detected`;
+
+      container.innerHTML = issues
+        .map((item) => {
+          const flaggedLineText = lines[item.line - 1] !== undefined ? lines[item.line - 1] : "";
+          return `
+            <div class="rounded-xl border border-rose-500/30 bg-slate-950/90 p-3.5 space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-semibold text-rose-300">${escapeHtml(item.category)}</span>
+                <span class="rounded-md bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 font-mono text-[11px] text-rose-200">Line ${item.line}</span>
+              </div>
+              <div class="rounded-lg bg-rose-500/20 border-l-4 border-rose-400 px-3 py-1.5 font-mono text-xs text-rose-100 overflow-x-auto">
+                <span class="text-rose-300/80 mr-2 select-none">${item.line}</span>${escapeHtml(flaggedLineText)}
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">${escapeHtml(item.detail)}</p>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function runInlineAutoFix() {
+      const source = document.getElementById("code-editor").value;
+      if (source !== lastReviewedCode) {
+        runCodeReview();
+        if (source !== lastReviewedCode) return;
+      }
+      runAutoFix(false);
+      if (!lastFixedCode) return;
+
+      const inlinePanel = document.getElementById("inline-autofix-panel");
+      const remainingIssues = analyzeCode(lastFixedCode);
+      const statusText = remainingIssues.length === 0
+        ? "All detected issues were fixed."
+        : `${remainingIssues.length} issue${remainingIssues.length === 1 ? "" : "s"} still need review.`;
+      const statusClass = remainingIssues.length === 0 ? "text-emerald-200" : "text-amber-200";
+      inlinePanel.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div class="text-xs font-semibold ${statusClass}">AutoFix finished</div>
+            <p class="mt-1 text-xs text-slate-300">${escapeHtml(statusText)} ${lastFixesSkipped ? `${lastFixesSkipped} change${lastFixesSkipped === 1 ? "" : "s"} need manual review.` : ""}</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="applyFixedToEditorAndReview()" class="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white transition cursor-pointer">Apply & Recheck</button>
+            <button type="button" onclick="copyFixedCode()" class="rounded-lg border border-slate-700 bg-slate-950 hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition cursor-pointer">Copy</button>
+            <button type="button" onclick="switchWorkspaceTab('autofix')" class="rounded-lg border border-slate-700 bg-slate-950 hover:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition cursor-pointer">Full Details</button>
+          </div>
+        </div>
+        <pre class="max-h-48 overflow-auto rounded-lg bg-[#070b14] p-3 text-[11px] leading-5 text-emerald-200">${escapeHtml(lastFixedCode)}</pre>
+      `;
+      inlinePanel.classList.remove("hidden");
+    }
+
+    function getIndentUnit(lines) {
+      if (lines.some((line) => /^\t+/.test(line))) return "\t";
+      const widths = lines
+        .filter((line) => line.trim())
+        .map((line) => (line.match(/^ +/) || [""])[0].length)
+        .filter((width) => width > 0);
+      if (!widths.length) return "    ";
+      const smallest = Math.min(...widths);
+      return " ".repeat(Math.max(1, Math.min(8, smallest)));
+    }
+
+    function insertOsImport(lines) {
+      const masked = maskCode(lines.join("\n")).split("\n");
+      if (masked.some((line) => /^\s*(?:import\s+os\b|from\s+os\s+import\b)/.test(line))) return lines;
+
+      let index = 0;
+      while (index < lines.length && (/^\s*#!/.test(lines[index]) || /^\s*#.*coding[:=]/i.test(lines[index]) || !masked[index].trim())) index += 1;
+      const docstringStart = lines[index] && lines[index].match(/^\s*[rRuU]{0,2}("""|''')/);
+      if (docstringStart) {
+        const delimiter = docstringStart[1];
+        let close = index;
+        if (lines[index].indexOf(delimiter, lines[index].indexOf(delimiter) + 3) < 0) {
+          close = index + 1;
+          while (close < lines.length && !lines[close].includes(delimiter)) close += 1;
+        }
+        index = Math.min(lines.length, close + 1);
+      }
+
+      while (index < lines.length && (!masked[index].trim() || /^\s*#/.test(lines[index]))) index += 1;
+      while (index < lines.length && /^\s*from\s+__future__\s+import\b/.test(masked[index])) index += 1;
+      lines.splice(index, 0, "import os");
+      return lines;
+    }
+
+    function detectSourceLanguage(sourceText) {
+      const codeOnly = maskCode(sourceText);
+      const hasPythonMarkers = /(^|\n)\s*(?:async\s+)?def\s+|(^|\n)\s*(?:from\s+\S+\s+import|import\s+\S+)/.test(codeOnly);
+      const hasJavaScriptMarkers = /(^|\n)\s*(?:export\s+)?(?:const|let|var|function|class)\b|=>|\b(?:fetch|axios)\s*\(/.test(codeOnly);
+      return hasJavaScriptMarkers && !hasPythonMarkers ? "javascript" : "python";
+    }
+
+    function balancedCallOnLine(maskedLine) {
+      let depth = 0;
+      for (const char of maskedLine) {
+        if (char === "(") depth += 1;
+        if (char === ")") depth -= 1;
+        if (depth < 0) return false;
+      }
+      return depth === 0;
+    }
+
+    function makeJavaScriptWrappedLines(line, indent, innerIndent) {
+      const declaration = line.match(/^(\s*)(const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(.+?);?\s*$/);
+      if (declaration) {
+        if (/[,:]\s*[^=]+\s*=/.test(line) || declaration[4].includes(",")) return null;
+        const name = declaration[3];
+        const statement = `${innerIndent}${name} = ${declaration[4]}`;
+        return [`${indent}${declaration[2] === "const" ? "let" : declaration[2]} ${name};`, `${indent}try {`, statement, `${indent}} catch (error) {`, `${innerIndent}throw error;`, `${indent}}`];
+      }
+      if (/^\s*(?:if|for|while|switch|catch|try|else|do|with|function|class|export\s+function|async\s+function)\b/.test(line) || /\blambda\b/.test(line) || /\{\s*$/.test(line)) return null;
+      return [`${indent}try {`, `${innerIndent}${line.trim()}`, `${indent}} catch (error) {`, `${innerIndent}throw error;`, `${indent}}`];
+    }
+
+    function runAutoFix(notifyUser = true) {
+      const originalCode = document.getElementById("code-editor").value;
+      const changelogEl = document.getElementById("autofix-changelog");
+      const outputEl = document.getElementById("autofix-output-code");
+      const countBadge = document.getElementById("fix-count-badge");
+      const postFixPill = document.getElementById("post-fix-status-pill");
+
+      if (!originalCode.trim()) {
+        lastFixedCode = "";
+        lastFixedSource = "";
+        lastFixesApplied = 0;
+        lastFixesSkipped = 0;
+        countBadge.textContent = "0 fixes applied";
+        postFixPill.textContent = "No code";
+        postFixPill.className = "rounded-full px-2.5 py-0.5 text-[11px] font-medium bg-slate-800 text-slate-300";
+        outputEl.textContent = "# No source code provided to fix.";
+        changelogEl.innerHTML = `<div class="rounded-xl border border-dashed border-slate-800 p-4 text-xs text-slate-400">Add code in the Review Code tab first, then run AutoFix.</div>`;
+        return;
+      }
+
+      const lines = originalCode.split("\n");
+      const maskedLines = maskCode(originalCode).split("\n");
+      const fixesLog = [];
+      const manualLog = [];
+      const sourceLanguage = detectSourceLanguage(originalCode);
+      const indentUnit = getIndentUnit(lines);
+      let needsOsImport = false;
+      const riskyCallRegex = /\b(?:open|requests\s*\.\s*(?:get|post|put|delete|patch|head)|httpx\s*\.\s*(?:get|post|put|delete|patch|head)|urllib\s*\.\s*request\s*\.\s*urlopen|json\s*\.\s*loads?|subprocess\s*\.\s*(?:run|Popen|call|check_output|check_call)|shutil\s*\.\s*(?:copy|move|rmtree)|os\s*\.\s*(?:remove|rename|replace|makedirs|system)|sqlite3\s*\.\s*connect|socket\s*\.\s*create_connection|eval|exec|fetch|axios\s*\.\s*(?:get|post|put|delete|patch))\s*\(/i;
+      const fixedLines = [];
+
+      lines.forEach((line, index) => {
+        const lineNumber = index + 1;
+        const codeLine = maskedLines[index] || "";
+        const indent = (line.match(/^[\t ]*/) || [""])[0];
+        const innerIndent = `${indent}${indentUnit}`;
+        const secret = getSecretAssignment(line);
+
+        if (secret) {
+          const envKey = normalizedIdentifier(secret.name).join("_").toUpperCase();
+          const replacement = (secret.isJavaScript || (secret.isMapping && sourceLanguage === "javascript"))
+            ? `process.env.${envKey}`
+            : `os.getenv("${envKey}", "")`;
+          if (secret.isMapping) {
+            const replacementMapping = `${secret.keyPrefix}${secret.name}${secret.keySuffix}${secret.separator}${replacement}`;
+            fixedLines.push(`${line.slice(0, secret.start)}${replacementMapping}${line.slice(secret.start + secret.original.length)}`);
+          } else {
+            fixedLines.push(`${secret.indent}${secret.declaration}${secret.name}${secret.assignment}${replacement}${secret.trailing}`);
+          }
+          if (!secret.isJavaScript && !(secret.isMapping && sourceLanguage === "javascript")) needsOsImport = true;
+          fixesLog.push({
+            line: lineNumber,
+            issue: "Hard-Coded Secret",
+            fixSummary: `Replaced the literal value with an environment variable (${envKey}).`,
+          });
+          return;
+        }
+
+        if (codeLine.trim() && riskyCallRegex.test(codeLine) && !hasErrorHandler(lines, maskedLines, index)) {
+          if (!balancedCallOnLine(codeLine)) {
+            fixedLines.push(line);
+            manualLog.push({ line: lineNumber, issue: "Missing Error Handling", fixSummary: "This call spans multiple lines; review its complete statement before wrapping it safely." });
+            return;
+          }
+
+          if (sourceLanguage === "javascript") {
+            const wrapped = makeJavaScriptWrappedLines(line, indent, innerIndent);
+            if (!wrapped) {
+              fixedLines.push(line);
+              manualLog.push({ line: lineNumber, issue: "Missing Error Handling", fixSummary: "This statement needs a manual try/catch so its variable scope and control flow stay correct." });
+              return;
+            }
+            fixedLines.push(...wrapped);
+          } else {
+            if (/^\s*(?:with|async\s+with|def|async\s+def|class|@|if|elif|for|while|except|else|try|finally)\b/.test(codeLine) || /:\s*$/.test(codeLine) || /\blambda\b/.test(codeLine)) {
+              fixedLines.push(line);
+              manualLog.push({ line: lineNumber, issue: "Missing Error Handling", fixSummary: "This statement needs a manual try/except so its block structure and control flow stay correct." });
+              return;
+            }
+            fixedLines.push(`${indent}try:`);
+            fixedLines.push(`${innerIndent}${line.trim()}`);
+            fixedLines.push(`${indent}except Exception:`);
+            fixedLines.push(`${innerIndent}raise`);
+          }
+          fixesLog.push({
+            line: lineNumber,
+            issue: "Missing Error Handling",
+            fixSummary: `Wrapped the one-line operation on line ${lineNumber} in a try block and re-raised failures.`,
+          });
+          return;
+        }
+
+        fixedLines.push(line);
+      });
+
+      const outputLines = needsOsImport ? insertOsImport(fixedLines) : fixedLines;
+      lastFixedCode = outputLines.join("\n");
+      lastFixedSource = originalCode;
+      lastFixesApplied = fixesLog.length;
+
+      const remainingIssues = analyzeCode(lastFixedCode);
+      const recordedManual = new Set(manualLog.map((entry) => entry.issue));
+      remainingIssues.forEach((issue) => {
+        if (!recordedManual.has(issue.category)) {
+          manualLog.push({ line: issue.line, issue: issue.category, fixSummary: "This finding could not be changed safely by the automatic fixer." });
+          recordedManual.add(issue.category);
+        }
+      });
+      lastFixesSkipped = manualLog.length;
+
+      outputEl.textContent = lastFixedCode;
+      countBadge.textContent = `${lastFixesApplied} ${lastFixesApplied === 1 ? "fix" : "fixes"} applied${lastFixesSkipped ? ` · ${lastFixesSkipped} need review` : ""}`;
+      if (remainingIssues.length === 0) {
+        postFixPill.textContent = "0 issues left";
+        postFixPill.className = "rounded-full px-2.5 py-0.5 text-[11px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
+      } else {
+        postFixPill.textContent = `${remainingIssues.length} ${remainingIssues.length === 1 ? "issue" : "issues"} left`;
+        postFixPill.className = "rounded-full px-2.5 py-0.5 text-[11px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30";
+      }
+
+      if (!fixesLog.length && !manualLog.length) {
+        changelogEl.innerHTML = `<div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-200">No issues found that required modification. Your code is already clean.</div>`;
+      } else {
+        const entries = [
+          ...fixesLog.map((entry) => ({ ...entry, status: "Fixed" })),
+          ...manualLog.map((entry) => ({ ...entry, status: "Manual review" })),
+        ].sort((a, b) => a.line - b.line);
+        changelogEl.innerHTML = entries.map((entry) => {
+          const manual = entry.status === "Manual review";
+          const tone = manual ? "amber" : "emerald";
+          return `
+            <div class="rounded-xl border border-${tone}-500/30 bg-slate-950/80 p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <div class="text-xs font-semibold text-${tone}-300">${escapeHtml(entry.status)} · ${escapeHtml(entry.issue)}</div>
+                <div class="text-xs text-slate-300 mt-0.5">${escapeHtml(entry.fixSummary)}</div>
+              </div>
+              <span class="self-start sm:self-center rounded-md bg-slate-800 px-2.5 py-1 font-mono text-[11px] text-slate-300 shrink-0">Line ${entry.line}</span>
+            </div>
+          `;
+        }).join("");
+      }
+
+      if (notifyUser) showToast("AutoFix completed.", "success");
+    }
+    function copyFixedCode() {
+      const currentCode = document.getElementById("code-editor").value;
+      if (!lastFixedCode || lastFixedSource !== currentCode) {
+        runAutoFix(false);
+      }
+      if (!lastFixedCode) {
+        showToast("Nothing to copy yet.", "error");
+        return;
+      }
+      copyPlainText(lastFixedCode, "Fixed code copied to clipboard.");
+    }
+
+    function applyFixedToEditorAndReview() {
+      const currentCode = document.getElementById("code-editor").value;
+      if (!lastFixedCode || lastFixedSource !== currentCode) {
+        runAutoFix(false);
+      }
+      if (!lastFixedCode) return;
+
+      document.getElementById("code-editor").value = lastFixedCode;
+      handleEditorInput();
+      switchWorkspaceTab("review");
+      runCodeReview();
+      showToast("Fixed code loaded into Review Code.", "success");
+    }
+
+    function openGitHubUploadPage() {
+      const rawUrl = document.getElementById("github-repo-url").value.trim();
+      const statusBox = document.getElementById("github-upload-status");
+      let targetUrl = "https://github.com/new";
+
+      if (rawUrl) {
+        const cleaned = rawUrl.replace(/\/+$/, "").replace(/\.git$/i, "");
+        if (/^https:\/\/github\.com\/[^/]+\/[^/]+$/i.test(cleaned)) {
+          targetUrl = `${cleaned}/upload`;
+        } else {
+          statusBox.textContent = "Please enter a valid https://github.com/owner/repo URL or leave it blank to open New Repository.";
+          statusBox.classList.remove("hidden");
+          return;
+        }
+      }
+
+      statusBox.textContent = `Opening ${targetUrl} in a new tab...`;
+      statusBox.classList.remove("hidden");
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+    }
+
+    function copyStarterScript() {
+      copyPlainText(STARTER_REVIEWER_SCRIPT, "Starter script copied.");
+    }
+
+    async function downloadStarterScript() {
+      try {
+        const dl = window.claude && window.claude.use ? await window.claude.use("downloads") : null;
+        if (dl) {
+          await dl.save({ filename: "reviewer.py", data: STARTER_REVIEWER_SCRIPT });
+          showToast("Downloaded reviewer.py", "success");
+          return;
+        }
+      } catch (err) {
+        if (err && err.code === "declined") return;
+      }
+      downloadStarterScriptLegacy();
+    }
+
+    function downloadStarterScriptLegacy() {
+      const blob = new Blob([STARTER_REVIEWER_SCRIPT], { type: "text/x-python;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "reviewer.py";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("Downloaded reviewer.py", "success");
+    }
+
+    function copyPlainText(text, successMsg) {
+      try {
+        const helper = document.createElement("textarea");
+        helper.value = text;
+        helper.setAttribute("readonly", "");
+        helper.style.position = "fixed";
+        helper.style.left = "-9999px";
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand("copy");
+        helper.remove();
+        showToast(successMsg, "success");
+      } catch (err) {
+        showToast("Unable to copy text in this browser context.", "error");
+      }
+    }
+
+    function initApp() {
+      document.getElementById("starter-script-code").textContent = STARTER_REVIEWER_SCRIPT;
+      document.addEventListener("fullscreenchange", () => {
+        updateEditorFullscreenButton();
+        syncEditorLineNumbers();
+      });
+      const editor = document.getElementById("code-editor");
+      editor.value = SAMPLE_BUGGY_CODE;
+      handleEditorInput();
+      runCodeReview();
+
+      const session = getActiveSession();
+      renderSessionUI(session);
+    }
+
+    window.addEventListener("DOMContentLoaded", initApp);
+  </script>
+<script>
+/* ===== PREMIUM LAYER: motion + mode switching (vanilla JS, rAF-throttled, transform/opacity only) ===== */
+(function(){
+  var body=document.body, $=function(s,r){return (r||document).querySelector(s)}, $$=function(s,r){return [].slice.call((r||document).querySelectorAll(s))};
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches, fine=matchMedia('(pointer:fine)').matches;
+
+  /* Landing vs app: skip landing if a verified session exists */
+  function hasSession(){try{var s=getActiveSession();return !!(s&&s.email&&s.otpVerified===true)}catch(e){return false}}
+  function enter(demo){body.classList.remove('landing-mode');window.scrollTo(0,0);if(demo&&typeof instantDemoLogin==='function')instantDemoLogin();}
+  function goLanding(){body.classList.add('landing-mode');window.scrollTo(0,0);}
+  $$('[data-launch]').forEach(function(b){b.addEventListener('click',function(e){e.preventDefault();enter(b.hasAttribute('data-demo'))})});
+  var _logout=window.logoutUser; window.logoutUser=function(){_logout();goLanding();};
+  body.classList.add('landing-mode');
+  if(hasSession())body.classList.remove('landing-mode');
+  /* "Back to home" button on the auth screen */
+  var back=document.createElement('button');back.type='button';back.className='btn back-home';back.textContent='← Home';back.addEventListener('click',goLanding);
+  $('#auth-screen').appendChild(back);
+
+  /* Split hero heading into words */
+  $$('[data-split]').forEach(function(h){var i=0;(function walk(n){[].slice.call(n.childNodes).forEach(function(c){
+    if(c.nodeType===3){var f=document.createDocumentFragment();c.textContent.split(/(\s+)/).forEach(function(t){if(!t.trim()){f.appendChild(document.createTextNode(t));return}var s=document.createElement('span');s.className='w';s.style.setProperty('--i',i++);s.textContent=t;f.appendChild(s)});n.replaceChild(f,c)}
+    else if(c.nodeType===1&&!c.classList.contains('w'))walk(c)})})(h)});
+  /* Preloader (<1s) */
+  function ready(){var p=$('#preloader');setTimeout(function(){p.classList.add('done');body.classList.add('loaded')},reduce?0:600)}
+  document.readyState==='complete'?ready():addEventListener('load',ready); setTimeout(ready,1500);
+
+  /* Scroll reveal (once) with per-element stagger via --i */
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.15,rootMargin:'0px 0px -40px'});
+  $$('.rv').forEach(function(el){reduce?el.classList.add('in'):io.observe(el)});
+  /* Counters */
+  var co=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;co.unobserve(e.target);var el=e.target,t=+el.dataset.count,t0=performance.now();
+    (function tick(n){var p=Math.min((n-t0)/1400,1);el.textContent=Math.round(t*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(tick)})(t0)})},{threshold:.6});
+  $$('[data-count]').forEach(function(el){if(reduce){el.textContent=el.dataset.count}else co.observe(el)});
+
+  /* Scroll-linked: progress bar, navbar shrink, sticky hero fade/scale, parallax */
+  var ticking=false,bar=$('#progress'),nav=$('#lpNav'),copy=$('#heroCopy'),track=$('#heroTrack'),layers=$$('[data-depth]');
+  function onScroll(){ticking=false;var y=scrollY,max=document.documentElement.scrollHeight-innerHeight;
+    bar.style.transform='scaleX('+(max>0?y/max:0)+')';nav.classList.toggle('shrunk',y>40);
+    if(reduce)return;
+    if(track&&innerWidth>=1024){var p=Math.min(Math.max(y/(track.offsetHeight-innerHeight),0),1);copy.style.opacity=1-p*.9;copy.style.transform='scale('+(1-p*.08)+') translate3d(0,'+(p*-40)+'px,0)'}
+    layers.forEach(function(l){if(l.hasAttribute('data-tilt'))return;l.style.transform='translate3d(0,'+(y*parseFloat(l.dataset.depth))+'px,0)'});
+    $$('.aurora i').forEach(function(b,i){b.style.marginTop=(y*(.03+i*.02))+'px'})}
+  addEventListener('scroll',function(){if(!ticking){ticking=true;requestAnimationFrame(onScroll)}},{passive:true});onScroll();
+
+  /* 3D tilt (max ±8deg), rAF-throttled */
+  if(!reduce&&fine){$$('[data-tilt]').forEach(function(c){var raf=0;
+    c.addEventListener('pointermove',function(e){if(raf)return;raf=requestAnimationFrame(function(){raf=0;var r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+      c.style.transform='perspective(1000px) rotateX('+(-y*16)+'deg) rotateY('+(x*16)+'deg) translateY(-6px)'})});
+    c.addEventListener('pointerleave',function(){c.style.transform=''})});
+    /* Magnetic buttons */
+    $$('#landing .btn').forEach(function(b){b.addEventListener('pointermove',function(e){var r=b.getBoundingClientRect();b.style.transform='translate('+((e.clientX-r.left-r.width/2)*.15)+'px,'+((e.clientY-r.top-r.height/2)*.25)+'px) scale(1.02)'});b.addEventListener('pointerleave',function(){b.style.transform=''})});
+    /* Cursor glow follower */
+    var g=$('#glow'),gx=0,gy=0,gr=0;addEventListener('pointermove',function(e){gx=e.clientX;gy=e.clientY;g.style.opacity=1;if(!gr)gr=requestAnimationFrame(function(){gr=0;g.style.transform='translate3d('+gx+'px,'+gy+'px,0)'})},{passive:true});
+  }
+})();
+</script>
+
+<script>
+/* ===== IMMERSIVE LAYER: raw-WebGL particle field that morphs on scroll and flees the cursor ===== */
+(function(){
+  var body=document.body,c=document.getElementById('gl'),reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,fine=matchMedia('(pointer:fine)').matches;
+  var gl=c.getContext('webgl',{alpha:true,antialias:false,premultipliedAlpha:true});
+  if(!gl){c.style.display='none';return}
+  var N=innerWidth<768?5500:12000,R=Math.random;
+  /* four target shapes: sphere -> torus -> cube shell -> DNA helix */
+  var P=[0,1,2,3].map(function(){return new Float32Array(N*3)}),S=new Float32Array(N);
+  for(var i=0;i<N;i++){S[i]=R();
+    var k=i+.5,ph=Math.acos(1-2*k/N),th=Math.PI*(1+Math.sqrt(5))*k;
+    P[0].set([1.3*Math.sin(ph)*Math.cos(th),1.3*Math.cos(ph),1.3*Math.sin(ph)*Math.sin(th)],i*3);
+    var u=R()*6.2832,v=R()*6.2832;
+    P[1].set([(1.1+.45*Math.cos(v))*Math.cos(u),.45*Math.sin(v)*1.2,(1.1+.45*Math.cos(v))*Math.sin(u)],i*3);
+    var f=Math.floor(R()*3),s=R()<.5?-1:1,a=(R()*2-1)*1.05,b=(R()*2-1)*1.05,q=[0,0,0];q[f]=s*1.05;q[(f+1)%3]=a;q[(f+2)%3]=b;P[2].set(q,i*3);
+    var t=R()*2-1,st=R()<.5?0:Math.PI,rung=R()<.12,ang=t*9+st;
+    P[3].set(rung?[Math.cos(t*9)*(R()*2-1)*.85,t*1.7,Math.sin(t*9)*(R()*2-1)*.85]:[Math.cos(ang)*.85+(R()-.5)*.06,t*1.7,Math.sin(ang)*.85+(R()-.5)*.06],i*3);
+  }
+  function sh(t,s){var o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o}
+  var vs='attribute vec3 p0,p1,p2,p3;attribute float sd;uniform float uT,uM,uAsp,uDpr,uAl,uRY,uRX;uniform vec2 uOff,uMs;varying float vA;varying vec3 vC;'+
+  'void main(){vec3 p=uM<1.?mix(p0,p1,smoothstep(0.,1.,uM)):uM<2.?mix(p1,p2,smoothstep(0.,1.,uM-1.)):mix(p2,p3,smoothstep(0.,1.,uM-2.));'+
+  'p+=.035*vec3(sin(uT*.8+sd*40.+p.y*3.),cos(uT*.7+sd*55.+p.z*3.),sin(uT*.9+sd*31.+p.x*3.));'+
+  'float cy=cos(uRY),sy=sin(uRY);p.xz=mat2(cy,-sy,sy,cy)*p.xz;float cx=cos(uRX),sx=sin(uRX);p.yz=mat2(cx,-sx,sx,cx)*p.yz;'+
+  'float z=p.z+4.;vec2 n=p.xy/z*2.2;n.x/=uAsp;n+=uOff;vec2 d=n-uMs;d.x*=uAsp;float l=length(d);float w=exp(-l*l*9.);'+
+  'n+=normalize(d+1e-4)*w*.14*vec2(1./uAsp,1.);gl_Position=vec4(n,0.,1.);gl_PointSize=(1.2+sd*2.2)*uDpr*(5./z)*(1.+w*1.2);'+
+  'vA=uAl*(.35+.65*sd);vC=mix(vec3(.31,.49,1.),mix(vec3(.55,.36,.96),vec3(.13,.83,.93),clamp(p.y*.5+.5,0.,1.)),clamp(p.x*.5+.5,0.,1.));}';
+  var fs='precision mediump float;varying float vA;varying vec3 vC;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float a=smoothstep(.5,0.,d);gl_FragColor=vec4(vC*a*vA*1.2,a*vA);}';
+  var pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)){c.style.display='none';return}
+  gl.useProgram(pr);
+  function attr(n,d,arr){var b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,arr,gl.STATIC_DRAW);var l=gl.getAttribLocation(pr,n);gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,d,gl.FLOAT,false,0,0)}
+  ['p0','p1','p2','p3'].forEach(function(n,i){attr(n,3,P[i])});attr('sd',1,S);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+  var U={};['uT','uM','uAsp','uDpr','uAl','uRY','uRX','uOff','uMs'].forEach(function(n){U[n]=gl.getUniformLocation(pr,n)});
+  var dpr=Math.min(devicePixelRatio||1,2);
+  function size(){c.width=innerWidth*dpr;c.height=innerHeight*dpr;gl.viewport(0,0,c.width,c.height);gl.uniform1f(U.uAsp,innerWidth/innerHeight);gl.uniform1f(U.uDpr,dpr)}
+  size();addEventListener('resize',size);
+  var mx=0,my=0,tx=0,ty=0,morph=0,offx=0,offy=0,al=1,t0=performance.now();
+  addEventListener('pointermove',function(e){tx=e.clientX/innerWidth*2-1;ty=-(e.clientY/innerHeight*2-1)},{passive:true});
+  function frame(now){
+    requestAnimationFrame(frame);
+    if(!body.classList.contains('landing-mode')||document.hidden)return;
+    var t=(now-t0)/1000,max=document.documentElement.scrollHeight-innerHeight,p=max>0?Math.min(scrollY/max,1):0;
+    var wide=innerWidth>=1024,heroP=Math.min(scrollY/(innerHeight*.8),1);
+    morph+=(p*3-morph)*.06;mx+=(tx-mx)*.08;my+=(ty-my)*.08;
+    offx+=((wide?.5*(1-heroP):0)-offx)*.05;offy+=((wide?0:.32*(1-heroP)-.1*heroP)-offy)*.05;al+=((1-Math.min(p*5,1)*.5)-al)*.05;
+    gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(U.uT,reduce?0:t);gl.uniform1f(U.uM,reduce?0:morph);gl.uniform1f(U.uAl,al);
+    gl.uniform1f(U.uRY,reduce?0:t*.09+mx*.5+p*4);gl.uniform1f(U.uRX,reduce?0:my*.25);
+    gl.uniform2f(U.uOff,offx,offy);gl.uniform2f(U.uMs,fine?mx:9,fine?my:9);
+    gl.drawArrays(gl.POINTS,0,N);
+  }
+  requestAnimationFrame(frame);
+
+  /* Custom cursor ring: grows on interactive elements */
+  var cur=document.getElementById('cur');
+  if(fine&&!reduce){var cx=0,cy=0,px=0,py=0;
+    addEventListener('pointermove',function(e){px=e.clientX;py=e.clientY;cur.style.opacity=1;
+      cur.classList.toggle('hot',!!e.target.closest('a,button,[data-tilt]'))},{passive:true});
+    (function loop(){cx+=(px-cx)*.18;cy+=(py-cy)*.18;cur.style.transform='translate3d('+cx+'px,'+cy+'px,0)';requestAnimationFrame(loop)})();
+  }
+
+  /* "Decrypt" text scramble (fits the CipherFIX name): runs once on reveal, and on hover */
+  var CH='01<>/#$%&*+=?',els=[].slice.call(document.querySelectorAll('.eyebrow,.bento h3,.steps h3,.stat span:last-child,.lp-links a'));
+  function scr(el){if(reduce||el._s)return;el._s=1;var o=el._o||(el._o=el.textContent),f=0;
+    var iv=setInterval(function(){f++;var k=Math.floor(f/1.6);el.textContent=o.split('').map(function(ch,i){return ch===' '||i<k?ch:CH[Math.floor(Math.random()*CH.length)]}).join('');
+      if(k>=o.length){clearInterval(iv);el.textContent=o;el._s=0}},30)}
+  var so=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){scr(e.target);so.unobserve(e.target)}})},{threshold:.6});
+  els.forEach(function(el){so.observe(el);el.addEventListener('pointerenter',function(){scr(el)})});
+})();
+</script>
+
+<button id="pwaInstall" type="button" aria-label="Install CipherFIX app">⬇ Install app</button>
+<div id="pwaToast" role="status" aria-live="polite"></div>
+<script>
+/* ===== PWA: service worker, install prompt, standalone mode, offline status ===== */
+(function(){
+  var standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  var btn=document.getElementById('pwaInstall'),toast=document.getElementById('pwaToast'),deferred=null,tt;
+  function say(m,ms){toast.textContent=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toast.classList.remove('show')},ms||3500)}
+  /* Installed app opens straight into the workspace, not the marketing landing page */
+  if(standalone){document.documentElement.classList.add('standalone');document.body.classList.remove('landing-mode')}
+  if('serviceWorker' in navigator&&location.protocol!=='file:'){
+    addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})});
+  }
+  addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;if(!standalone)btn.classList.add('show')});
+  btn.addEventListener('click',function(){
+    if(deferred){deferred.prompt();deferred.userChoice.then(function(){deferred=null;btn.classList.remove('show')})}
+  });
+  addEventListener('appinstalled',function(){btn.classList.remove('show');say('CipherFIX installed ✓')});
+  /* iPhone/iPad Safari has no install prompt: show a one-time hint */
+  var ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  if(ios&&!standalone&&!localStorage.getItem('cf_ios_hint')){setTimeout(function(){say('To install: tap Share, then “Add to Home Screen”.',7000);try{localStorage.setItem('cf_ios_hint','1')}catch(e){}},4000)}
+  addEventListener('offline',function(){say('You’re offline. CipherFIX still works.',4000)});
+  addEventListener('online',function(){say('Back online')});
+})();
+</script>
+
+<!-- ===== JUDGE LAYER: floating actions, QR modal, guided tour ===== -->
+<div id="fab"><button type="button" id="btnQR" aria-haspopup="dialog">📱 Scan to open</button><button type="button" id="btnTour">🎯 Judge tour</button></div>
+<div id="qrm" role="dialog" aria-modal="true" aria-labelledby="qrt"><div class="box">
+  <h3 id="qrt">Scan. Open. Review.</h3><p>Point your phone camera at the code. It opens CipherFIX with no install and no signup.</p>
+  <div id="qrcode" aria-label="QR code that opens CipherFIX"></div>
+  <input id="qrurl" type="url" aria-label="App link used in the QR code" spellcheck="false" />
+  <div class="row"><button type="button" id="qrCopy">Copy link</button><button type="button" id="qrShare">Share</button><button type="button" id="qrBig">Present</button><button type="button" id="qrClose">Close</button></div>
+  <div id="qrnote">This page is a local file. Deploy it first, then paste the public https link above and the QR updates.</div>
+</div></div>
+<div id="tour" role="region" aria-label="Guided demo"><small id="tourStep"></small><b id="tourT"></b><span id="tourD"></span><div class="row"><button type="button" id="tourSkip">Close</button><button type="button" class="go" id="tourGo">Run step ▶</button></div></div>
+<script>
+/* ===== JUDGE LAYER: QR / link entry, instant judge sign-in (?judge=1), guided 3-step tour ===== */
+(function(){
+  var body=document.body,$=function(i){return document.getElementById(i)};
+  var base=location.origin+location.pathname,PUBLIC_URL='https://wwwcipherfixnetlifyapp.netlify.app/';
+  function stored(){try{return localStorage.getItem('cf_qr_url')}catch(e){return null}}
+  function judgeLink(u){u=(u||'').trim().split('#')[0];return u?u+'#judge':''}
+
+  /* ---- QR modal ---- */
+  var modal=$('qrm'),input=$('qrurl'),box=$('qrcode'),last='';
+  function draw(){
+    var url=judgeLink(input.value);box.innerHTML='';last=url;
+    $('qrnote').style.display=/^https?:/.test(url)?'none':'block';
+    if(!url)return;
+    if(typeof QRCode==='undefined'){box.textContent='QR library unavailable offline. Use the link below.';return}
+    try{new QRCode(box,{text:url,width:320,height:320,colorDark:'#05070f',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){box.textContent='Could not draw QR.'}
+  }
+  function openQR(){input.value=stored()||PUBLIC_URL||(location.protocol==='file:'?'':base);modal.classList.add('open');draw();$('qrClose').focus()}
+  function closeQR(){modal.classList.remove('open','big')}
+  $('btnQR').addEventListener('click',openQR);$('qrClose').addEventListener('click',closeQR);
+  modal.addEventListener('click',function(e){if(e.target===modal)closeQR()});
+  addEventListener('keydown',function(e){if(e.key==='Escape')closeQR()});
+  input.addEventListener('input',function(){try{localStorage.setItem('cf_qr_url',input.value)}catch(e){};draw()});
+  $('qrBig').addEventListener('click',function(){modal.classList.toggle('big')});
+  $('qrCopy').addEventListener('click',function(){var t=last;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).catch(function(){input.value=t;input.select();document.execCommand('copy')});this.textContent='Copied ✓';var b=this;setTimeout(function(){b.textContent='Copy link'},1500)});
+  $('qrShare').addEventListener('click',function(){if(navigator.share)navigator.share({title:'CipherFIX',text:'Try CipherFIX: code review and AutoFix',url:last}).catch(function(){});else $('qrCopy').click()});
+  document.querySelectorAll('[data-qr]').forEach(function(b){b.addEventListener('click',function(e){e.preventDefault();openQR()})});
+
+  /* ---- Guided tour: drives the real app functions ---- */
+  var steps=[
+    {t:'Review hard-to-find bugs',d:'Six detection layers scan a tricky sample and surface the hidden bugs, by severity.',run:function(){switchWorkspaceTab('review');loadSampleCode('hard')}},
+    {t:'AutoFix it',d:'One click produces repaired code and a full log of every change.',run:function(){switchWorkspaceTab('autofix');runAutoFix(true)}},
+    {t:'Ship to GitHub',d:'Open the GitHub upload page and push the fixed file.',run:function(){switchWorkspaceTab('github')}}
+  ],at=0,tour=$('tour');
+  function show(){var s=steps[at];$('tourStep').textContent='Judge tour · step '+(at+1)+' of '+steps.length;$('tourT').textContent=s.t;$('tourD').textContent=s.d;$('tourGo').textContent=at===steps.length-1?'Run & finish ✓':'Run step ▶';tour.classList.add('on')}
+  function inApp(){return !body.classList.contains('landing-mode')}
+  function ensureSession(){
+    try{var s=getActiveSession();if(!(s&&s.email&&s.otpVerified))setActiveSession({name:'Judge Demo',email:'judge@cipherfix.demo',provider:'demo'})}catch(e){}
+    body.classList.remove('landing-mode');scrollTo(0,0)}
+  function startTour(){ensureSession();at=0;setTimeout(function(){show();$('tourGo').focus({preventScroll:true})},300)}
+  $('btnTour').addEventListener('click',startTour);
+  $('tourSkip').addEventListener('click',function(){tour.classList.remove('on')});
+  $('tourGo').addEventListener('click',function(){
+    try{steps[at].run()}catch(e){console.warn('tour step failed',e)}
+    if(at<steps.length-1){at++;show()}else tour.classList.remove('on');
+  });
+  document.querySelectorAll('[data-judge]').forEach(function(b){b.addEventListener('click',function(e){e.preventDefault();startTour()})});
+
+  /* ---- Opened from QR/link ending in #judge: skip landing + OTP and start the tour ---- */
+  if(location.hash==='#judge'||/[?&]judge(=|&|$)/.test(location.search)){ensureSession();setTimeout(startTour,700)}
+})();
+</script>
+
+<script>
+/* ===== CIPHERFIX DEEP ENGINE: 6-layer analysis + self-verifying AutoFix =====
+   L1 Syntax & structure -> L2 Scope & names -> L3 Logic & control flow -> L4 API & runtime misuse
+   -> L5 Security & data-flow (taint) -> L6 Secrets & error handling (original rules). */
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const baseAnalyze=window.analyzeCode,origReview=window.runCodeReview,origFix=window.runAutoFix,origLoad=window.loadSampleCode;
+const LAYERS=[['L1','Syntax & structure'],['L2','Scope & names'],['L3','Logic & control flow'],['L4','API & runtime misuse'],['L5','Security & data-flow'],['L6','Secrets & error handling']];
+const RANK={High:0,Medium:1,Low:2};
+const KW=new Set('False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case'.split(' '));
+const BI=new Set('print abs all any ascii bin bool breakpoint bytearray bytes callable chr classmethod compile complex delattr dict dir divmod enumerate eval exec exit filter float format frozenset getattr globals hasattr hash help hex id input int isinstance issubclass iter len list locals map max memoryview min next object oct open ord pow property quit range repr reversed round set setattr slice sorted staticmethod str sum super tuple type vars zip self cls __name__ __file__ __doc__ __class__ __init__ Exception BaseException ValueError TypeError KeyError IndexError AttributeError RuntimeError OSError IOError ImportError ModuleNotFoundError StopIteration NotImplementedError ZeroDivisionError FileNotFoundError PermissionError TimeoutError KeyboardInterrupt SystemExit AssertionError NameError OverflowError LookupError UnicodeError UnicodeDecodeError ConnectionError ArithmeticError EOFError NotImplemented Ellipsis'.split(' '));
+const ind=s=>{let w=0;for(const c of s){if(c===' ')w++;else if(c==='\t')w+=4;else break}return w};
+const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function osa(a,b){const d=[];for(let i=0;i<=a.length;i++)d[i]=[i];for(let j=1;j<=b.length;j++)d[0][j]=j;
+ for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++){const c=a[i-1]===b[j-1]?0:1;d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c);
+  if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])d[i][j]=Math.min(d[i][j],d[i-2][j-2]+1)}return d[a.length][b.length]}
+function scan(m,fn){let d=0;for(let i=0;i<m.length;i++){const c=m[i];if('([{'.includes(c))d++;else if(')]}'.includes(c))d--;else if(fn(c,i,d))return i}return -1}
+const loneEq=(m,i)=>m[i]==='='&&!'=!<>:+-*/%&|^@'.includes(m[i-1]||' ')&&m[i+1]!=='='&&m[i+1]!=='>';
+const topEq=m=>scan(m,(c,i,d)=>d===0&&loneEq(m,i));
+function closeOf(m,open){let d=0;for(let i=open;i<m.length;i++){if(m[i]==='(')d++;else if(m[i]===')'){d--;if(d===0)return i}}return -1}
+function pyBody(raw,i){const b=ind(raw[i]);let e=i;for(let k=i+1;k<raw.length;k++){const t=raw[k].trim();if(!t||t[0]==='#')continue;if(ind(raw[k])<=b)break;e=k}return[i+1,e]}
+function jsBody(mk,i){let d=0,open=false;for(let k=i;k<mk.length;k++){for(const c of mk[k]){if(c==='{'){d++;open=true}else if(c==='}'){d--;if(open&&d===0)return[i+1,k]}}if(!open&&k>i+1)return null}return null}
+const EXIT=/\b(break|return|raise|yield|throw)\b|\bsys\s*\.\s*exit|\bexit\s*\(|os\s*\.\s*_exit|process\s*\.\s*exit/;
+const codeEnd=(r,py)=>{let q='';for(let k=0;k<r.length;k++){const c=r[k];if(q){if(c==='\\')k++;else if(c===q)q=''}else if(c==='"'||c==="'")q=c;else if(py&&c==='#')return r.slice(0,k).trimEnd().length}return r.trimEnd().length};
+const renameIn=(raw,mk,name,to)=>{const re=new RegExp('(?<![\\w.$])'+esc(name)+'(?![\\w$])','g');const hits=[];let m;while((m=re.exec(mk)))hits.push(m.index);let r=raw;for(let k=hits.length-1;k>=0;k--)r=r.slice(0,hits[k])+to+r.slice(hits[k]+name.length);return r};
+
+function collect(src){
+ src=src.replace(/\r\n?/g,'\n');
+ const raw=src.split('\n'),mk=maskCode(src).split('\n'),py=detectSourceLanguage(src)==='python',out=[],all=mk.join('\n');
+ const add=(i,layer,sev,cat,detail,fix,note)=>out.push({line:i+1,layer,severity:sev,category:cat,detail,fix:fix||null,note:note||''});
+ const bal=s=>scan(s,()=>false)>=-1&&(()=>{let d=0;for(const c of s){if('([{'.includes(c))d++;if(')]}'.includes(c))d--}return d===0})();
+ /* ---------- L1: syntax & structure ---------- */
+ const inStr=new Array(raw.length).fill(false);let tri='',bt=false,bc=false;
+ raw.forEach((s,i)=>{inStr[i]=!!(tri||bt||bc);let j=0;
+  while(j<s.length){
+   if(tri){const k=s.indexOf(tri,j);if(k<0)break;tri='';j=k+3;continue}
+   if(bt){const k=s.indexOf('`',j);if(k<0)break;bt=false;j=k+1;continue}
+   if(bc){const k=s.indexOf('*/',j);if(k<0)break;bc=false;j=k+2;continue}
+   const c=s[j];
+   if(py?c==='#':(c==='/'&&s[j+1]==='/'))break;
+   if(!py&&c==='/'&&s[j+1]==='*'){bc=true;j+=2;continue}
+   if(!py&&c==='`'){bt=true;j++;continue}
+   if(c==='"'||c==="'"){
+    if(s.substr(j,3)===c.repeat(3)){tri=c.repeat(3);j+=3;continue}
+    let k=j+1;while(k<s.length&&s[k]!==c){if(s[k]==='\\')k++;k++}
+    if(k>=s.length){if(!/\\\s*$/.test(s))add(i,'L1','High','Unterminated String',`The ${c} quote opened on this line is never closed.`,null,'Add the missing closing quote.');break}
+    j=k+1;continue}
+   j++}});
+ {const st=[],pr={')':'(',']':'[','}':'{'};let stop=false;
+  mk.forEach((s,i)=>{if(stop)return;for(const c of s){if('([{'.includes(c))st.push([c,i]);else if(pr[c]){const t=st.pop();if(!t||t[0]!==pr[c]){add(i,'L1','High','Unbalanced Bracket',`Closing "${c}" does not match ${t?`the "${t[0]}" opened on line ${t[1]+1}`:'any opening bracket'}.`,null,'Add or remove a bracket so every pair matches.');stop=true;return}}}});
+  if(!stop)st.slice(-2).forEach(([c,i])=>add(i,'L1','High','Unclosed Bracket',`"${c}" opened here is never closed.`,null,'Add the missing closing bracket.'))}
+ if(py){
+  let stack=[0],expect=false,dep=0,cont=false;
+  mk.forEach((s,i)=>{
+   if(inStr[i])return;
+   const sd=dep;for(const c of s){if('([{'.includes(c))dep++;else if(')]}'.includes(c))dep=Math.max(0,dep-1)}
+   const t=s.trim(),rt=raw[i].trim();
+   if(!t&&(!rt||rt[0]==='#'))return;
+   if(/^( +\t|\t+ )/.test(raw[i]))add(i,'L1','High','Mixed Tabs and Spaces','This line mixes tabs and spaces in its indentation (TabError).',r=>r.replace(/^[\t ]+/,x=>x.replace(/\t/g,'    ')),'Converted tabs to 4 spaces.');
+   if(sd>0||cont){cont=/\\\s*$/.test(raw[i]);return}
+   cont=/\\\s*$/.test(raw[i]);
+   const w=ind(raw[i]),top=stack[stack.length-1];
+   if(expect){if(w<=top)add(i,'L1','High','Missing Indented Block','The previous line ends with ":" but this line is not indented.',null,'Indent this line or add a body such as "pass".');else stack.push(w);expect=false}
+   else if(w>top)add(i,'L1','High','Unexpected Indent','This line is indented more than the block above it.',null,'Align this line with the previous statement.');
+   else if(w<top){while(stack.length>1&&w<stack[stack.length-1])stack.pop();if(w!==stack[stack.length-1])add(i,'L1','High','Inconsistent Dedent','Unindent does not match any outer indentation level.',null,'Align with a matching outer block.')}
+   if(!t)return;
+   const endsColon=/:\s*$/.test(t);if(endsColon)expect=true;
+   if(/^(?:async\s+)?(?:def|class|if|elif|else|for|while|try|except|finally|with)\b/.test(t)&&!endsColon&&dep===0&&!/[\\,]\s*$/.test(t)&&scan(t,(c,k,d)=>c===':'&&d===0)<0){
+    add(i,'L1','High','Missing Colon','This block statement is missing its trailing ":".',r=>{const p=codeEnd(r,true);return r.slice(0,p)+':'+r.slice(p)},'Added the missing ":".');expect=true}
+   if(/^\s*else\s+if\b/.test(s))add(i,'L1','High','Invalid "else if"','Python uses "elif", not "else if".',r=>r.replace(/\belse\s+if\b/,'elif'),'Replaced "else if" with "elif".');
+   if(/^\s*print\s+[^\s(=]/.test(s)){const p=codeEnd(raw[i],true);add(i,'L1','High','Python 2 Print Statement','print is a function in Python 3.',r=>{const h=r.slice(0,p),m=h.match(/^(\s*)print\s+(.+)$/);return m?`${m[1]}print(${m[2]})${r.slice(p)}`:null},'Wrapped the arguments in print( ).')}
+   if(/^\s*(?:if|elif|while)\b/.test(s)){const e=topEq(s);if(e>=0)add(i,'L1','High','Assignment Instead of Comparison','A single "=" is used inside a condition (SyntaxError).',r=>r.slice(0,e)+'=='+r.slice(e+1),'Changed "=" to "==".')}
+   if(/&&|\|\|/.test(s))add(i,'L1','High','JavaScript Operator in Python','"&&" / "||" are not valid Python.',r=>r.replace(/&&/g,'and').replace(/\|\|/g,'or'),'Replaced with "and" / "or".');
+   const pp=s.match(/\b([A-Za-z_]\w*)\s*(\+\+|--)\s*$/);if(pp)add(i,'L1','High','Invalid Increment Operator',`Python has no "${pp[2]}" operator.`,r=>r.replace(/\b([A-Za-z_]\w*)\s*(\+\+|--)\s*$/,(m,n,o)=>`${n} ${o==='++'?'+=':'-='} 1`),'Rewrote as "+= 1" / "-= 1".');
+  });
+ }
+ /* ---------- L2: scope & names ---------- */
+ if(py&&!/\bimport\s+\*|\bexec\s*\(|\bglobals\s*\(|\blocals\s*\(/.test(all)){
+  const bound=new Set();const ids=s=>(s.match(/[A-Za-z_]\w*/g)||[]).forEach(n=>bound.add(n));
+  let m,re=/\bdef\s+(\w+)\s*\(/g;while((m=re.exec(all))){bound.add(m[1]);const o=m.index+m[0].length-1,c=closeOf(all,o);if(c>0)ids(all.slice(o+1,c).replace(/=[^,]*/g,'').replace(/:[^,=]*/g,''))}
+  re=/\bclass\s+(\w+)/g;while((m=re.exec(all)))bound.add(m[1]);
+  re=/\blambda\s+([^:]*):/g;while((m=re.exec(all)))ids(m[1].replace(/=[^,]*/g,''));
+  re=/\bfor\s+(.+?)\s+in\b/g;while((m=re.exec(all)))ids(m[1]);
+  re=/\bas\s+(\w+)/g;while((m=re.exec(all)))bound.add(m[1]);
+  re=/\b(?:global|nonlocal)\s+([\w, ]+)/g;while((m=re.exec(all)))ids(m[1]);
+  re=/(\w+)\s*:=/g;while((m=re.exec(all)))bound.add(m[1]);
+  let inImp=false;
+  mk.forEach(s=>{let q;
+   if(inImp){ids(s.replace(/\bas\b/g,' '));if(s.includes(')'))inImp=false;return}
+   if((q=s.match(/^\s*from\s+\S+\s+import\s+(.*)$/))){if(q[1].includes('(')&&!q[1].includes(')'))inImp=true;q[1].split(',').forEach(p=>{const a=p.replace(/[()]/g,'').trim().split(/\s+as\s+/);if(a[0])bound.add((a[1]||a[0]).trim())});return}
+   if((q=s.match(/^\s*import\s+(.*)$/))){q[1].split(',').forEach(p=>{const a=p.trim().split(/\s+as\s+/);if(a[0])bound.add((a[1]||a[0].split('.')[0]).trim())});return}
+   const parts=[];let last=0;scan(s,(c,k,d)=>{if(d===0&&loneEq(s,k)){parts.push(s.slice(last,k));last=k+1}return false});
+   parts.forEach(p=>{const a=p.match(/^\s*(\w+)\s*:\s*[^=]*$/);if(a)bound.add(a[1]);else if(/^[*\w\s,()\[\]]+$/.test(p))ids(p)})});
+  const cand=[...bound,...BI];
+  mk.forEach((s,i)=>{
+   if(/^\s*(?:from|import)\b/.test(s)||inStr[i])return;
+   let sd=0;for(let k=0;k<i;k++)for(const c of mk[k]){if('([{'.includes(c))sd++;else if(')]}'.includes(c))sd=Math.max(0,sd-1)}
+   const seen=new Set(),rx=/(?<![\w.$])[A-Za-z_]\w*/g;let w;
+   while((w=rx.exec(s))){const n=w[0];if(KW.has(n)||bound.has(n)||BI.has(n)||seen.has(n))continue;
+    if(/^(?:[rRbBuUfF]|[rR][bBfF]|[bBfF][rR])$/.test(n)&&/["']/.test(raw[i][w.index+n.length]||''))continue;
+    let d=sd;for(let k=0;k<w.index;k++){if('([{'.includes(s[k]))d++;else if(')]}'.includes(s[k]))d--}
+    if(d>0&&/^\s*=(?!=)/.test(s.slice(w.index+n.length)))continue;
+    if(/\b(?:def|class)\s+$/.test(s.slice(0,w.index)))continue;
+    seen.add(n);
+    const map={true:'True',false:'False',null:'None'};let best=map[n]||null,bd=best?0:9,tie=false;
+    if(!best)for(const c of cand){if(c===n||KW.has(c))continue;const dd=n.toLowerCase()===c.toLowerCase()?0:(n.length>2?osa(n,c):9);if(dd<bd){bd=dd;best=c;tie=false}else if(dd===bd&&c!==best)tie=true}
+    const ok=best&&!tie&&bd<=(n.length>=5?1:0);
+    add(i,'L2','High',best&&bd<=2?'Undefined Name (Likely Typo)':'Undefined Name',`"${n}" is used but never defined${best&&bd<=2?`. Did you mean "${best}"?`:'.'}`,ok?(r,m2)=>renameIn(r,m2,n,best):null,best&&bd<=2?`Rename "${n}" to "${best}".`:`Define "${n}" or import it before use.`)}});
+  mk.forEach((s,i)=>{if(inStr[i])return;const a=s.match(/^\s*(\w{4,})\s*=(?!=)/);if(!a||BI.has(a[1]))return;const n=a[1];
+   if((all.match(new RegExp('(?<![\\w.$])'+n+'(?![\\w$])','g'))||[]).length!==1)return;
+   const cnt=c=>(all.match(new RegExp('(?<![\\w.$])'+c+'(?![\\w$])','g'))||[]).length,sk=x=>x.replace(/\d+/g,'#');
+   const near=[...bound].filter(c=>c!==n&&!BI.has(c)&&c.length>=4&&osa(n,c)===1&&sk(n)!==sk(c)&&cnt(c)>=2);
+   if(near.length)add(i,'L2','Medium','Possible Typo in Variable Name',`"${n}" is assigned but never used, and looks like a misspelling of "${near[0]}", so the intended variable is probably never updated.`,null,`Rename "${n}" to "${near[0]}" if that is what you meant.`)});
+  mk.forEach((s,i)=>{if(inStr[i])return;let q=s.match(/^\s*(\w+)\s*=(?!=)/);if(q&&['list','dict','str','set','sum','max','min','id','type','len','input','file','map','filter','all','any','int','float'].includes(q[1])&&!/^\s/.test(s))add(i,'L2','Low','Shadowed Built-in',`"${q[1]}" shadows a Python built-in and can break later code.`,null,`Rename the variable (e.g. "${q[1]}_value").`)});
+ }
+ if(!py){
+  const consts={};mk.forEach((s,i)=>{let q=s.match(/^\s*const\s+([A-Za-z_$][\w$]*)\s*=/);if(q){(consts[q[1]]=consts[q[1]]||[]).push(i)}});
+  const redecl=n=>new RegExp('\\b(?:let|var|function)\\s+'+esc(n)+'\\b|\\(\\s*[^)]*\\b'+esc(n)+'\\b[^)]*\\)\\s*(?:=>|\\{)').test(all);
+  Object.entries(consts).forEach(([n,ls])=>{if(ls.length>1||redecl(n))return;const re=new RegExp('(?<![\\w$.])'+esc(n)+'\\s*(?:=(?![=>])|\\+=|-=|\\*=|/=|\\+\\+|--)');
+   mk.forEach((s,i)=>{if(i!==ls[0]&&re.test(s)){add(i,'L2','High','Assignment to Constant',`"${n}" is declared with const (line ${ls[0]+1}) and cannot be reassigned (TypeError).`,null,`Declare "${n}" with let instead of const.`);
+    const di=ls[0];if(!out.some(o=>o.line===di+1&&o.category==='Constant Reassigned'))add(di,'L2','High','Constant Reassigned',`const "${n}" is reassigned on line ${i+1}.`,r=>r.replace(/\bconst\b/,'let'),`Changed const to let for "${n}".`)}})});
+ }
+ const defs={};mk.forEach((s,i)=>{const q=s.match(/^(\s*)(?:async\s+)?(?:def|function)\s+(\w+)/);if(q){const k=q[1].length+':'+q[2];if(defs[k]!==undefined&&!/^\s*@/.test(raw[i-1]||''))add(defs[k],'L2','Medium','Redefined Function',`"${q[2]}" is defined again on line ${i+1}; this earlier definition is dead code.`,null,'Rename or remove one of the duplicate definitions.');defs[k]=i}});
+ if(py){const cs=[];mk.forEach((s,i)=>{if(inStr[i]||!s.trim())return;const w=ind(raw[i]);while(cs.length&&w<=cs[cs.length-1].w)cs.pop();
+  const q=s.match(/^\s*(?:async\s+)?def\s+\w+\s*\(\s*([^,)=:]*)/);
+  if(q&&cs.length&&cs[cs.length-1].t==='class'&&!/^\s*@(staticmethod|classmethod)/.test(raw[i-1]||'')&&!['self','cls'].includes(q[1].trim()))
+   add(i,'L2','High','Missing "self" Parameter','This method is inside a class but has no "self" parameter, so calls will raise TypeError.',r=>r.replace(/(\bdef\s+\w+\s*\()\s*(\)?)/,(x,a,b)=>a+(b?'self)':'self, ')),'Added "self" as the first parameter.');
+  if(/^\s*class\b/.test(s))cs.push({t:'class',w});else if(/^\s*(?:async\s+)?def\b/.test(s))cs.push({t:'def',w})})}
+ /* ---------- L3: logic & control flow ---------- */
+ mk.forEach((s,i)=>{
+  if(inStr[i])return;const t=s.trim(),r0=raw[i];if(!t)return;
+  if(py&&/\bdef\s+\w+\s*\(.*[=]\s*(\[\]|\{\}|set\(\)|dict\(\)|list\(\))/.test(s))add(i,'L3','High','Mutable Default Argument','A list/dict default is created once and shared by every call, so data leaks between calls.',null,'Use None as the default and create the list inside the function.');
+  if(/^(return|raise|break|continue|throw)\b/.test(t)&&bal(t)){let k=i+1;while(k<mk.length&&!mk[k].trim())k++;
+   if(k<mk.length&&ind(raw[k])===ind(r0)&&!/^(else|elif|except|finally|case|default|catch|[}\])])/.test(mk[k].trim())&&!/^[}\])]/.test(raw[k].trim()))add(k,'L3','Medium','Unreachable Code',`This code can never run because line ${i+1} always exits first.`,null,'Remove the dead code or move it before the exit statement.')}
+  let q;
+  if(/^\s*(?:if|elif|while)\b|^\s*\}?\s*(?:else\s+)?(?:if|while)\s*\(/.test(s)){
+   if((q=r0.match(/(\b[\w.$\[\]]+)\s*(==|===)\s*("[^"]*"|'[^']*'|\w[\w.]*)\s*(or|\|\|)\s*("[^"]*"|'[^']*'|\d[\w.]*)\s*(?=[:)]|\s*$)/)))
+    add(i,'L3','High','Always-True Condition',`"${q[1]} ${q[2]} ${q[3]} ${q[4]} ${q[5]}" is always true because the second operand is a constant.`,r=>r.replace(/(\b[\w.$\[\]]+)\s*(==|===)\s*("[^"]*"|'[^']*'|\w[\w.]*)\s*(or|\|\|)\s*("[^"]*"|'[^']*'|\d[\w.]*)\s*(?=[:)]|\s*$)/,'$1 $2 $3 $4 $1 $2 $5'),`Rewrote as "${q[1]} ${q[2]} ${q[3]} ${q[4]} ${q[1]} ${q[2]} ${q[5]}".`);
+   if((q=r0.match(/([\w.$\[\]]+)\s*(!==?)\s*("[^"]*"|'[^']*'|\w+)\s*(or|\|\|)\s*\1\s*\2\s*("[^"]*"|'[^']*'|\w+)/)))
+    add(i,'L3','High','Always-True Condition',`"${q[1]} ${q[2]} A ${q[4]} ${q[1]} ${q[2]} B" can never be false; "and" was probably meant.`,r=>r.replace(/([\w.$\[\]]+)\s*(!==?)\s*("[^"]*"|'[^']*'|\w+)\s*(or|\|\|)\s*\1\s*\2\s*("[^"]*"|'[^']*'|\w+)/,(x,a,o,b,j,c)=>`${a} ${o} ${b} ${j==='or'?'and':'&&'} ${a} ${o} ${c}`),'Changed "or" to "and".');
+   if(!py&&(q=s.match(/(?:if|while)\s*\(/))){const o=q.index+q[0].length-1;let d=0,pos=-1;for(let k=o;k<s.length;k++){if(s[k]==='(')d++;else if(s[k]===')'){d--;if(d===0)break}else if(d===1&&loneEq(s,k)){pos=k;break}}
+    if(pos>0)add(i,'L3','High','Assignment in Condition','A single "=" inside a condition assigns instead of comparing.',r=>r.slice(0,pos)+'==='+r.slice(pos+1),'Changed "=" to "===".')}}
+  if(py&&(q=s.match(/^(\s*)(\w+)\.(strip|lstrip|rstrip|replace|lower|upper|title|capitalize|casefold|format)\(.*\)\s*$/))&&topEq(s)<0){const a=q[1],b=q[2],c=q[3];
+   add(i,'L3','Medium','Result of String Method Discarded',`Strings are immutable, so ${b}.${c}() changes nothing unless its result is stored.`,r=>`${a}${b} = ${r.trim()}`,`Assigned the result back to "${b}".`)}
+  if(!py&&(q=s.match(/^(\s*)([\w$]+)\.(trim|trimStart|trimEnd|toLowerCase|toUpperCase|replace|replaceAll|concat|slice|substring|padStart|padEnd)\(.*\)\s*;?\s*$/))&&topEq(s)<0){const a=q[1],b=q[2],c=q[3];
+   add(i,'L3','Medium','Result of String Method Discarded',`Strings are immutable, so ${b}.${c}() has no effect unless its result is stored.`,r=>`${a}${b} = ${r.trim()}`,`Assigned the result back to "${b}".`)}
+  if((q=s.match(/^(\s*)(\w+)\s*=\s*(\w+)\.(sort|append|extend|reverse|insert|remove|clear|update|add|discard|push|unshift)\(/))&&(py?!['push','unshift'].includes(q[4]):['push','unshift'].includes(q[4]))){
+   if(q[2]===q[3])add(i,'L3','High','Reassigned to None',`${q[3]}.${q[4]}() ${py?'returns None':'returns the new length'}, so "${q[2]}" is overwritten with the wrong value.`,r=>r.replace(/^(\s*)\w+\s*=\s*/,'$1'),'Removed the assignment so the list is changed in place.');
+   else add(i,'L3','Medium','Mutating Method Result Used',`${q[3]}.${q[4]}() ${py?'returns None':'returns a length'}; "${q[2]}" will not hold the data.`,null,'Call the method on its own line, then use the list.')}
+  if((q=s.match(/^(\s*)([A-Za-z_$][\w.$]*)\s*([+\-*/%])\s*([\w.$]+)\s*;?\s*$/))&&topEq(s)<0&&!/^\s*(?:return|print|yield|await|raise|throw|del|import|from)\b/.test(s)){const a=q[1],b=q[2],o=q[3],c=q[4],semi=/;\s*$/.test(s)?';':'';
+   add(i,'L3','Medium','Expression Has No Effect',`"${b} ${o} ${c}" computes a value and throws it away.`,r=>`${a}${b} ${o}= ${c}${semi}`,`Rewrote as "${b} ${o}= ${c}".`)}
+  if(/(?:\/\/|\/|%)\s*0(?![\w.])/.test(s)&&!/^\s*(?:import|from)\b/.test(s))add(i,'L3','High','Division by Zero','The expression divides (or takes a remainder) by the constant 0.',null,'Guard the divisor or fix the value.');
+  if(py&&(q=s.match(/\brange\s*\(\s*(?:\d+\s*,\s*)?len\s*\(([^()]*)\)\s*\+\s*1\s*\)/)))add(i,'L3','Medium','Off-by-One in range()',`range(len(${q[1]})+1) runs one step past the last valid index.`,null,'Use range(len(x)) unless the extra step is intended.');
+  if(py&&(q=s.match(/\b(\w+)\s*\[\s*len\s*\(\s*\1\s*\)\s*\]/)))add(i,'L3','High','Index Out of Range',`${q[1]}[len(${q[1]})] is always past the end (IndexError).`,null,`Use ${q[1]}[-1] or len(${q[1]}) - 1.`);
+  if(!py&&/\bfor\s*\([^;]*;\s*\w+\s*<=\s*[\w.$\[\]]+\.length\s*;/.test(s))add(i,'L3','High','Off-by-One in Loop','"<= length" reads one element past the end of the array.',r=>r.replace(/<=(\s*[\w.$\[\]]+\.length\s*;)/,'<$1'),'Changed "<=" to "<".');
+  if(!py&&(q=s.match(/\b(\w+)\s*\[\s*\1\.length\s*\](?!\s*=(?!=))/)))add(i,'L3','Medium','Index Out of Range',`${q[1]}[${q[1]}.length] is always undefined.`,null,`Use ${q[1]}[${q[1]}.length - 1].`);
+  if(py&&/\b(?:==|!=)\s*None\b/.test(s))add(i,'L3','Low','Comparison to None with ==','None should be compared with "is" / "is not".',r=>r.replace(/\s*(==|!=)\s*None\b/,(m,o)=>o==='=='?' is None':' is not None'),'Used "is None" / "is not None".');
+  if(py&&(q=r0.match(/\b(is(?:\s+not)?)\s+(?=-?\d|"|')/d))&&s.slice(q.indices[1][0],q.indices[1][1])===q[1])add(i,'L3','High','Identity Check on Literal',`"${q[1]}" compares object identity, not value, when used with a literal.`,r=>r.replace(/\bis\s+not\s+(?=-?\d|"|')/,'!= ').replace(/\bis\s+(?=-?\d|"|')/,'== '),'Used "==" / "!=" for value comparison.');
+  if(!py&&/[\w.$\])]\s*(?:===?|!==?)\s*NaN\b/.test(s))add(i,'L3','High','Comparison with NaN','NaN is never equal to anything, including itself.',r=>r.replace(/([\w.$\[\]]+)\s*(===?|!==?)\s*NaN\b/,(m,v,o)=>(o[0]==='!'?'!':'')+`Number.isNaN(${v})`),'Used Number.isNaN().');
+  if(py&&/^\s*except\s*:/.test(s))add(i,'L3','Medium','Bare except','A bare "except:" also catches KeyboardInterrupt and SystemExit.',r=>r.replace(/^(\s*)except\s*:/,'$1except Exception:'),'Changed to "except Exception:".');
+  if(py&&/^\s*except\b.*:\s*$/.test(s)){const[a,b]=pyBody(raw,i);let only=a<=b;for(let k=a;k<=b&&only;k++)if(mk[k].trim()&&mk[k].trim()!=='pass')only=false;if(only)add(i,'L3','Medium','Swallowed Exception','The exception is caught and silently ignored, hiding real failures.',null,'Log the error or re-raise it.')}
+  if(!py&&/\bcatch\s*(\([^)]*\))?\s*\{\s*\}/.test(s))add(i,'L3','Medium','Swallowed Exception','The empty catch block hides errors.',null,'Log or handle the error.');
+  if(!py&&/^\s*for\s*\(\s*var\s+(\w+)/.test(s)){const b=jsBody(mk,i);if(b&&mk.slice(b[0],b[1]+1).join('\n').match(/setTimeout|=>|function\s*\(|addEventListener|\.then\(/))add(i,'L3','High','Loop Variable Captured by Closure','With "var" every callback sees the final loop value.',r=>r.replace(/\bfor\s*\(\s*var\s+/,'for (let '),'Changed "var" to "let" so each iteration gets its own value.')}
+  let w;if((w=s.match(/^\s*while\s*\(?\s*(True|1|true)\s*\)?\s*:?\s*\{?\s*$|^\s*for\s*\(\s*;\s*;\s*\)/))){const b=py?pyBody(raw,i):jsBody(mk,i);if(b&&!EXIT.test(mk.slice(b[0],b[1]+1).join('\n')))add(i,'L3','High','Infinite Loop','This loop has no break, return, raise or exit, so it never ends.',null,'Add a condition or a break.')}
+  else if((w=s.match(/^\s*while\s*\(?(.+?)\)?\s*:?\s*\{?\s*$/))&&/^[\w\s<>=!.+\-*/%()]+$/.test(w[1])&&!/\w\s*\(/.test(w[1])){const names=(w[1].match(/[A-Za-z_]\w*/g)||[]).filter(n=>!KW.has(n)&&!['not','and','or','true','false'].includes(n));
+   const b=py?pyBody(raw,i):jsBody(mk,i);if(names.length&&b){const body=mk.slice(b[0],b[1]+1).join('\n');
+    const mut=names.some(n=>new RegExp('\\b'+n+'\\b\\s*(?:[+\\-*/%&|^@]?=(?!=)|\\+\\+|--|\\.\\w+\\s*\\(|\\[[^\\]]*\\]\\s*=)|(?:\\+\\+|--)\\s*'+n+'\\b|\\bdel\\s+'+n+'\\b|\\b'+n+'\\s*:=').test(body));
+    if(!mut&&!EXIT.test(body)&&!/\binput\s*\(|\bawait\b|\breadline|\bnext\s*\(/.test(body))add(i,'L3','High','Loop Condition Never Changes',`Nothing in the loop body changes ${names.map(n=>'"'+n+'"').join(', ')}, so the loop cannot end.`,null,'Update the loop variable inside the loop.')}}
+ });
+ /* ---------- L4: API & runtime misuse ---------- */
+ const encAsync=i=>{for(let k=i-1;k>=0;k--){if(/\b(function|=>)/.test(mk[k])&&ind(raw[k])<ind(raw[i]))return /\basync\b/.test(mk[k])}return false};
+ mk.forEach((s,i)=>{
+  if(inStr[i]||!s.trim())return;const r0=raw[i];let q;
+  if(py&&(q=s.match(/\brequests\s*\.\s*(?:get|post|put|delete|patch|head)\s*\(/))){const qi=q.index,o=qi+q[0].length-1,c=closeOf(s,o);
+   if(c>0&&!/timeout/.test(r0.slice(o,c)))add(i,'L4','Medium','Network Call Without Timeout','requests has no default timeout, so the program can hang forever.',r=>{const o2=r.indexOf('(',qi),c2=closeOf(mk[i],o2);return c2>0?r.slice(0,c2)+(r.slice(o2+1,c2).trim()?', ':'')+'timeout=10'+r.slice(c2):null},'Added timeout=10.')}
+  if(py&&(q=s.match(/^\s*(\w+)\s*=\s*open\s*\(/))&&!new RegExp('\\b'+q[1]+'\\s*\\.\\s*close\\s*\\(|with\\s+'+q[1]).test(all))add(i,'L4','Medium','File Never Closed',`"${q[1]}" is opened but never closed, leaking a file handle.`,null,'Use "with open(...) as f:" so it closes automatically.');
+  if(!py&&/\.forEach\s*\(\s*async\b/.test(s))add(i,'L4','Medium','async Callback in forEach','forEach does not wait for async callbacks, so errors and ordering are lost.',null,'Use a for...of loop with await, or Promise.all(map(...)).');
+  if(!py&&/^\s*(?:const|let|var)\s+\w+\s*=\s*(?!await\b)(?:fetch|axios\s*\.\s*\w+)\s*\(/.test(s)){const ok=encAsync(i);add(i,'L4','High','Missing await',"The promise is stored instead of its result, so .json() / data access will fail.",ok?r=>r.replace(/=\s*(?=(?:fetch|axios))/,'= await '):null,ok?'Added await.':'Make the enclosing function async and add await.')}
+  if(!py&&/\bparseInt\(\s*[^(),]+\)/.test(s))add(i,'L4','Low','parseInt Without Radix','Without a radix, strings like "08" may parse unexpectedly.',r=>r.replace(/\bparseInt\(\s*([^(),]+?)\s*\)/,'parseInt($1, 10)'),'Added radix 10.');
+ });
+ /* ---------- L5: security & data-flow ---------- */
+ const srcRe=py?/\binput\s*\(|\brequest\s*\.\s*(?:args|form|json|values|data|cookies|headers|get_json)\b|\bsys\s*\.\s*argv\b/:/\b(?:req|request)\s*\.\s*(?:query|body|params|headers|cookies)\b|\blocation\s*\.\s*(?:search|hash|href)\b|\bdocument\s*\.\s*cookie\b|\bprocess\s*\.\s*argv\b|\bprompt\s*\(/;
+ const tainted=new Set(),sqlVars=new Set(),useRe=n=>new RegExp('(?<![\\w$.])'+esc(n)+'(?![\\w$])');
+ for(let p=0;p<3;p++)raw.forEach((s,i)=>{if(inStr[i])return;const a=s.match(/^\s*(?:(?:const|let|var)\s+)?([A-Za-z_$][\w$]*)\s*=(?!=)\s*(.+)$/);if(!a)return;const rhs=a[2];
+  if(/^\s*(?:int|float|bool|len|Number|parseInt|parseFloat)\s*\(/.test(rhs))return;
+  if(srcRe.test(rhs)||[...tainted].some(n=>useRe(n).test(rhs)))tainted.add(a[1]);
+  if(/^\s*f?["'`]\s*(?:SELECT|INSERT|UPDATE|DELETE)\b/i.test(rhs)&&/\{|%|\+|\.format\(|\$\{/.test(rhs))sqlVars.add(a[1])});
+ const sinks=py?[[/\b(?:eval|exec)\s*\(/,'Code Injection','eval/exec'],[/\bos\s*\.\s*(?:system|popen)\s*\(|\bsubprocess\s*\.\s*\w+\s*\(/,'Command Injection','a shell command'],[/\.\s*execute(?:many)?\s*\(/,'SQL Injection','a SQL query'],[/\bopen\s*\(/,'Path Traversal','a file path'],[/\bpickle\s*\.\s*loads?\s*\(/,'Unsafe Deserialization','pickle']]:
+  [[/\beval\s*\(|new\s+Function\s*\(/,'Code Injection','eval()'],[/\.\s*(?:innerHTML|outerHTML)\s*=(?!=)|document\s*\.\s*write\s*\(/,'Cross-Site Scripting (XSS)','the DOM as HTML'],[/\b(?:exec|execSync|spawn)\s*\(/,'Command Injection','a shell command'],[/\.\s*(?:query|execute)\s*\(/,'SQL Injection','a SQL query']];
+ mk.forEach((s,i)=>{
+  if(inStr[i]||!s.trim())return;const r0=raw[i];let q;
+  for(const[re,cat,what]of sinks){if(!re.test(s))continue;
+   const t=[...tainted].find(n=>useRe(n).test(r0));const direct=srcRe.test(r0);
+   const sqlBuilt=cat==='SQL Injection'&&(/\(\s*f["']|["']\s*(?:%|\+)|\.format\(|\$\{/.test(r0)||[...sqlVars].some(n=>useRe(n).test(r0)));
+   if(sqlBuilt)add(i,'L5','High','SQL Injection (String-Built Query)','The SQL text is assembled with string formatting, so input can change the query.',null,'Use placeholders and pass values separately, e.g. execute("... WHERE name = %s", (name,)).');
+   else if(t||direct)add(i,'L5','High',cat,`${direct?'Raw user input':`User-controlled "${t}"`} flows into ${what} without validation.`,cat.startsWith('Cross')&&!/</.test(r0)&&/^\s*[\w.$\[\]]+\.innerHTML\s*=\s*[\w.$\[\]]+\s*;?\s*$/.test(r0)?r=>r.replace(/\.innerHTML\b/,'.textContent'):null,cat.startsWith('Cross')?'Switched innerHTML to textContent.':'Validate or escape the input before it reaches this call.');
+   else if(cat==='Code Injection')add(i,'L5','High','Dangerous eval/exec','eval/exec run arbitrary code and are almost never safe.',null,py?'Use ast.literal_eval for data, or remove it.':'Avoid eval; parse the data instead.');
+   else if(cat==='Unsafe Deserialization')add(i,'L5','Medium','Unsafe Deserialization','pickle can execute code while loading untrusted data.',null,'Use JSON or another safe format.');
+   else if(cat.startsWith('Cross')&&!/^\s*[\w.$\[\]]+\.(?:innerHTML|outerHTML)\s*=\s*(["'`])[^"'`${}]*\1\s*;?\s*$/.test(r0))add(i,'L5','Medium','innerHTML With Dynamic Content','Assigning dynamic strings to innerHTML can allow script injection.',null,'Use textContent, or sanitize the HTML first.');
+   break}
+  if(py){
+   if(/\byaml\s*\.\s*load\s*\(/.test(s))add(i,'L5','Medium','Unsafe yaml.load','yaml.load can construct arbitrary Python objects.',/Loader/.test(r0)?null:r=>r.replace(/\byaml\.load\(/,'yaml.safe_load('),'Used yaml.safe_load.');
+   if(/\bshell\s*=\s*True\b/.test(s))add(i,'L5','High','shell=True','shell=True passes the command through the shell, enabling command injection.',null,'Pass a list of arguments and drop shell=True.');
+   if(/\bhashlib\s*\.\s*(?:md5|sha1)\s*\(/.test(s))add(i,'L5','Medium','Weak Hash Algorithm','MD5/SHA-1 are broken for security use.',null,'Use sha256 (or argon2/bcrypt for passwords).');
+   if(/\bverify\s*=\s*False\b/.test(s))add(i,'L5','High','TLS Verification Disabled','verify=False accepts forged certificates.',r=>r.replace(/\bverify\s*=\s*False\b/,'verify=True'),'Set verify=True.');
+   if(/\bdebug\s*=\s*True\b/.test(s))add(i,'L5','Medium','Debug Mode Enabled','Debug mode can expose an interactive console and stack traces.',r=>r.replace(/\bdebug\s*=\s*True\b/,'debug=False'),'Set debug=False.');
+  }});
+ /* ---------- L6 handled by original rules in deepAnalyze ---------- */
+ return out}
+
+function deepAnalyze(src){
+ let base=[];try{base=baseAnalyze(src).map(x=>({...x,layer:'L6',fix:null,note:x.category==='Hard-Coded Secret'?'Move the value to an environment variable.':'Wrap the call in try/except (or try/catch).'}))}catch(e){}
+ let deep=[];try{deep=collect(src)}catch(e){console.warn('CipherFIX layer error',e)}
+ const seen=new Set();
+ return[...deep,...base].filter(x=>{const k=x.line+x.category;if(seen.has(k))return false;seen.add(k);return true}).sort((a,b)=>a.line-b.line||RANK[a.severity]-RANK[b.severity]||a.category.localeCompare(b.category))}
+
+/* Self-verifying fixer: apply safe line-preserving fixes, re-scan, repeat (max 4 passes) */
+function deepFix(src){
+ let cur=src.replace(/\r\n?/g,'\n');const log=[];
+ for(let pass=0;pass<4;pass++){
+  const lines=cur.split('\n'),mk=maskCode(cur).split('\n'),used=new Set();let changed=false;
+  collect(cur).filter(x=>x.fix).sort((a,b)=>RANK[a.severity]-RANK[b.severity]).forEach(x=>{const i=x.line-1;if(used.has(i))return;
+   let n=null;try{n=x.fix(lines[i],mk[i])}catch(e){}
+   if(n&&n!==lines[i]){lines[i]=n;used.add(i);changed=true;log.push({line:x.line,issue:x.category,layer:x.layer,fixSummary:x.note||x.detail})}});
+  if(!changed)break;cur=lines.join('\n')}
+ return{code:cur,log}}
+
+/* ---------- UI: layered scan panel + richer cards ---------- */
+function panel(issues){
+ const cnt={};issues.forEach(x=>cnt[x.layer]=(cnt[x.layer]||0)+1);
+ return`<div class="layerp"><div class="layerp-h"><b>Layered scan</b><span>${issues.length?issues.length+' finding'+(issues.length===1?'':'s')+' across '+Object.keys(cnt).length+' layer'+(Object.keys(cnt).length===1?'':'s'):'Passed all 6 layers'}</span></div><ol>${LAYERS.map(([id,n],k)=>`<li class="${cnt[id]?'hit':'ok'}" style="animation-delay:${k*160}ms"><i>${id}</i><span>${n}</span><b>${cnt[id]||'✓'}</b></li>`).join('')}</ol></div>`}
+window.runCodeReview=function(){
+ origReview();
+ const code=$('code-editor').value,box=$('review-results-container');if(!code.trim())return;
+ const issues=deepAnalyze(code);
+ if(box.children.length===issues.length)issues.forEach((it,i)=>{const c=box.children[i],t=c.querySelector('span.font-semibold'),p=c.querySelector('p');
+  if(t)t.textContent=`${it.layer} · ${it.category}`;
+  if(p)p.innerHTML=`<span class="sev sev-${it.severity}">${it.severity}</span>${escapeHtml(it.detail)}${it.note?`<span class="block mt-1.5 text-emerald-300">${it.fix?'Auto-fix':'Fix'}: ${escapeHtml(it.note)}</span>`:''}`});
+ box.insertAdjacentHTML('afterbegin',panel(issues))};
+window.runAutoFix=function(notify=true){
+ const ed=$('code-editor'),original=ed.value;
+ if(!original.trim())return origFix(notify);
+ const d=deepFix(original);
+ window.analyzeCode=baseAnalyze;ed.value=d.code;
+ try{origFix(false)}finally{ed.value=original;window.analyzeCode=deepAnalyze}
+ const ch=$('autofix-changelog');
+ const baseFixed=[...ch.children].map(c=>{const h=c.querySelector('.font-semibold'),s=c.querySelector('.mt-0\\.5'),l=c.querySelector('span.font-mono');return h&&/^Fixed/.test(h.textContent)?{issue:h.textContent.replace(/^Fixed\s*·\s*/,''),fixSummary:s?s.textContent:'',line:l?+(l.textContent.match(/\d+/)||[0])[0]:0,layer:'L6'}:null}).filter(Boolean);
+ lastFixedSource=original;
+ const remaining=deepAnalyze(lastFixedCode),fixed=[...d.log,...baseFixed].sort((a,b)=>a.line-b.line);
+ lastFixesApplied=fixed.length;lastFixesSkipped=remaining.length;
+ $('fix-count-badge').textContent=`${fixed.length} ${fixed.length===1?'fix':'fixes'} applied${remaining.length?` · ${remaining.length} need review`:''}`;
+ const pill=$('post-fix-status-pill');
+ pill.textContent=remaining.length?`${remaining.length} ${remaining.length===1?'issue':'issues'} left`:'0 issues left';
+ pill.className=remaining.length?'rounded-full px-2.5 py-0.5 text-[11px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30':'rounded-full px-2.5 py-0.5 text-[11px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+ const card=(tone,head,body,ln)=>`<div class="rounded-xl border border-${tone}-500/30 bg-slate-950/80 p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"><div><div class="text-xs font-semibold text-${tone}-300">${head}</div><div class="text-xs text-slate-300 mt-0.5">${body}</div></div><span class="self-start sm:self-center rounded-md bg-slate-800 px-2.5 py-1 font-mono text-[11px] text-slate-300 shrink-0">Line ${ln}</span></div>`;
+ if(fixed.length||remaining.length)ch.innerHTML=`<div class="layerp" style="margin:0 0 4px"><div class="layerp-h"><b>Self-verification</b><span>Re-scanned the fixed code through all 6 layers: ${remaining.length?remaining.length+' left for manual review':'clean'}</span></div></div>`+
+  fixed.map(e=>card('emerald',`Fixed · ${e.layer} · ${escapeHtml(e.issue)}`,escapeHtml(e.fixSummary),e.line)).join('')+
+  remaining.map(e=>card('amber',`Manual review · ${e.layer} · ${escapeHtml(e.category)} (${e.severity})`,escapeHtml(e.detail)+(e.note?` <span class="text-emerald-300">Fix: ${escapeHtml(e.note)}</span>`:''),e.line)).join('');
+ if(notify&&typeof showToast==='function')showToast('AutoFix completed.','success')};
+
+/* ---------- Hard-bug sample (spans every layer) ---------- */
+const HARD=`import requests, yaml
+
+API_KEY = "sk-live-9f8e7d6c5b4a"
+
+class Cart:
+    def add(item, qty=[]):
+        qty.append(item)
+        return qty
+
+def total(prices):
+    result = 0
+    for i in range(len(prices) + 1):
+        result += prices[i]
+    reuslt = result / 0
+    return result
+
+def clean(name):
+    name.strip()
+    if name == "admin" or "root":
+        return True
+    return False
+    print("done")
+
+def load(path, user):
+    cfg = yaml.load(open(path))
+    q = f"SELECT * FROM users WHERE name = '{user}'"
+    cursor.execute(q)
+    data = requests.get("https://api.example.com/v1/items")
+    items = []
+    items = items.sort()
+    if data is "ok"
+        return data
+`;
+window.loadSampleCode=function(t){if(t==='hard'){$('code-editor').value=HARD;handleEditorInput();runCodeReview()}else origLoad(t)};
+window.analyzeCode=deepAnalyze;
+window.CipherEngine={analyze:deepAnalyze,fix:deepFix,HARD};
+const cleanBtn=document.querySelector('button[onclick*="loadSampleCode(\'clean\')"]');
+if(cleanBtn){const b=cleanBtn.cloneNode(true);b.setAttribute('onclick',"loadSampleCode('hard')");b.textContent='Load Hard Bugs';cleanBtn.insertAdjacentElement('afterend',b)}
+})();
+</script>
+
+<script>
+(function(){
+  var URL_='https://wwwcipherfixnetlifyapp.netlify.app/';
+  function draw(){
+    var box=document.getElementById('footQR');
+    if(!box||box.firstChild)return;
+    if(typeof QRCode==='undefined'){box.textContent='QR unavailable. Use the link.';box.style.color='#05070f';box.style.fontSize='12px';box.style.textAlign='center';return}
+    try{new QRCode(box,{text:URL_,width:140,height:140,colorDark:'#05070f',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})}catch(e){box.textContent='Could not draw QR.'}
+  }
+  if(document.readyState==='complete')draw();else addEventListener('load',draw);
+})();
+</script>
+</body>
+</html>
